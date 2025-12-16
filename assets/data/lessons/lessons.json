@@ -1,0 +1,53 @@
+[
+  {
+    "id": 1,
+    "level": "A1",
+    "title": "Ders 1: Kendini Tanıtma",
+    "goal": "Kendini basitçe tanıtmayı öğren",
+    "grammar_focus": "Fiil ikinci pozisyonda, 'sein' ve 'haben'",
+    "vocab_keys": ["heißen", "kommen", "sein", "haben"],
+    "dialogue": [
+      {
+        "de": "Hallo, ich heiße Akif.",
+        "tr": "Merhaba, benim adım Akif."
+      },
+      {
+        "de": "Ich komme aus der Türkei.",
+        "tr": "Türkiye'den geliyorum."
+      },
+      {
+        "de": "Ich bin 25 Jahre alt.",
+        "tr": "25 yaşındayım."
+      }
+    ],
+    "examples": [
+      {
+        "de": "Ich bin Student.",
+        "tr": "Öğrenciyim."
+      },
+      {
+        "de": "Ich habe einen Bruder.",
+        "tr": "Bir erkek kardeşim var."
+      }
+    ],
+    "exercises": [
+      {
+        "type": "mcq",
+        "question_tr": "\"Ich komme aus der Türkei\" ne demek?",
+        "options_tr": [
+          "Türkiye'den geliyorum",
+          "Türkiye'ye gidiyorum",
+          "Türkiye'de yaşıyorum"
+        ],
+        "correct_index": 0
+      }
+    ]
+  }
+]
+
+
+
+
+
+
+

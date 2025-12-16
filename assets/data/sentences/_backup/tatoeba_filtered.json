@@ -1,0 +1,46 @@
+[
+  {
+    "id": 1001,
+    "de": "Ich habe keine Zeit.",
+    "tr": "Vaktim yok.",
+    "en": "I don't have time.",
+    "level": "A1",
+    "source": "tatoeba"
+  },
+  {
+    "id": 1002,
+    "de": "Wie geht es dir?",
+    "tr": "Nasılsın?",
+    "en": "How are you?",
+    "level": "A1",
+    "source": "tatoeba"
+  },
+  {
+    "id": 1003,
+    "de": "Ich verstehe nicht.",
+    "tr": "Anlamıyorum.",
+    "en": "I don't understand.",
+    "level": "A1",
+    "source": "tatoeba"
+  },
+  {
+    "id": 1004,
+    "de": "Kannst du mir helfen?",
+    "tr": "Bana yardım edebilir misin?",
+    "en": "Can you help me?",
+    "level": "A1",
+    "source": "tatoeba"
+  },
+  {
+    "id": 1005,
+    "de": "Ich bin müde.",
+    "tr": "Yorgunum.",
+    "en": "I am tired.",
+    "level": "A1",
+    "source": "tatoeba"
+  }
+]
+
+
+
+

@@ -1,0 +1,28 @@
+[
+  {
+    "id": 10,
+    "level": "A1",
+    "title": "Beim Bäcker",
+    "text_de": "Heute gehe ich früh zum Bäcker. Ich kaufe Brot und Brötchen. Der Bäcker ist sehr freundlich. Er fragt: 'Was möchten Sie?' Ich antworte: 'Zwei Brötchen bitte.'",
+    "text_tr": "Bugün erken saatte fırına gidiyorum. Ekmek ve küçük ekmekler alıyorum. Fırıncı çok nazik. O soruyor: 'Ne istersiniz?' Ben cevap veriyorum: 'İki küçük ekmek lütfen.'",
+    "questions": [
+      {
+        "question_tr": "Nereye gidiyor?",
+        "options_tr": ["Markete", "Fırına", "Okula"],
+        "correct_index": 1
+      },
+      {
+        "question_tr": "Ne alıyor?",
+        "options_tr": ["Süt", "Ekmek ve küçük ekmekler", "Meyve"],
+        "correct_index": 1
+      }
+    ]
+  }
+]
+
+
+
+
+
+
+
