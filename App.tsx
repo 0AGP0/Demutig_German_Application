@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from './src/constants/theme';
+import { StorageService } from './src/services/StorageService';
 import DashboardScreen from './src/screens/DashboardScreen';
 import VocabularyScreen from './src/screens/VocabularyScreen';
 import SentencesScreen from './src/screens/SentencesScreen';
-import TestScreen from './src/screens/TestScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 
 const Stack = createNativeStackNavigator();
@@ -71,24 +71,29 @@ function MainTabs() {
           ),
         }}
       />
-      <Tab.Screen
-        name="Test"
-        component={TestScreen}
-        options={{ 
-          tabBarLabel: 'Test',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="checkmark-circle" size={size} color={color} />
-          ),
-        }}
-      />
     </Tab.Navigator>
   );
 }
 
+// Development modunda her açılışta verileri temizle
+// Bu flag'i false yaparak devre dışı bırakabilirsiniz
+const CLEAR_DATA_ON_START = __DEV__ && true; // Development modunda ve true ise temizle
+
 export default function App() {
+  // Development modunda uygulama açılışında verileri temizle
+  useEffect(() => {
+    if (CLEAR_DATA_ON_START) {
+      StorageService.clearAllData().then(() => {
+        console.log('✅ Development: Tüm veriler temizlendi (sıfırdan başlıyor)');
+      }).catch(err => {
+        console.error('❌ Veri temizleme hatası:', err);
+      });
+    }
+  }, []);
+
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar barStyle="light-content" backgroundColor={Colors.backgroundSecondary} />
       <NavigationContainer>
         <Stack.Navigator
           initialRouteName="MainTabs"

@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
 import { ProgressService } from '../services/ProgressService';
 import { StorageService } from '../services/StorageService';
 import { TestService } from '../services/TestService';

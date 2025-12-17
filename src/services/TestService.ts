@@ -18,17 +18,14 @@ export class TestService {
     const allWords = await DataService.loadVocabulary(level);
     const savedWords = await StorageService.getVocabulary();
     
-    // Map kullanarak O(1) lookup için optimize et
-    const savedWordsMap = new Map<string | number, Vocabulary>();
-    savedWords.forEach(w => {
-      const key = w.id || w.german || w.word;
-      if (key) savedWordsMap.set(key, w);
-    });
-    
     // Saved words ile merge et
     const mergedWords = allWords.map(word => {
-      const identifier = word.german || word.word || word.id;
-      const saved = identifier ? savedWordsMap.get(identifier) : null;
+      const identifier = word.german || word.word;
+      const saved = savedWords.find(w => 
+        (w.german && w.german === identifier) || 
+        (w.word && w.word === identifier) ||
+        (w.id && w.id === word.id)
+      );
       return saved ? { ...word, ...saved } : word;
     });
     
@@ -254,15 +251,9 @@ export class TestService {
     const allSentences = await DataService.loadSentences(1000, level);
     const savedSentences = await StorageService.getSentences();
     
-    // Map kullanarak O(1) lookup için optimize et
-    const savedSentencesMap = new Map<number, Sentence>();
-    savedSentences.forEach(s => {
-      if (s.id) savedSentencesMap.set(s.id, s);
-    });
-    
     // Saved sentences ile merge et - saved değerleri öncelikli olmalı
     const mergedSentences = allSentences.map(sentence => {
-      const saved = sentence.id ? savedSentencesMap.get(sentence.id) : null;
+      const saved = savedSentences.find(s => s.id === sentence.id);
       if (saved) {
         // Saved değerler varsa, onları kullan (özellikle practiced değeri önemli)
         return { ...sentence, ...saved };

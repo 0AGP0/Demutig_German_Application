@@ -23,6 +23,12 @@ dist/
 .env
 .env.local
 
+# Android build artifacts - res/raw contains generated audio files (don't commit)
+android/app/src/main/res/raw/*
+!android/app/src/main/res/raw/.gitkeep
+
+
+
 
 
 

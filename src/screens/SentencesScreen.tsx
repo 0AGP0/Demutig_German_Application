@@ -8,13 +8,14 @@ import {
   Dimensions,
   Animated,
   PanResponder,
+  Image,
 } from 'react-native';
-import { Audio } from 'expo-av';
-import Constants from 'expo-constants';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DataService } from '../services/DataService';
 import { StorageService } from '../services/StorageService';
 import { ProgressService } from '../services/ProgressService';
+import { AudioService } from '../services/AudioService';
 import { Sentence } from '../models/Sentence';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../constants/theme';
 
@@ -23,15 +24,13 @@ const SWIPE_THRESHOLD = 80;
 const SWIPE_VELOCITY = 0.3;
 
 export default function SentencesScreen() {
+  const insets = useSafeAreaInsets();
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentLevel, setCurrentLevel] = useState<'A1' | 'A2' | 'B1' | 'B2'>('A1');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [showAll, setShowAll] = useState(false);
   const [sentencesFinished, setSentencesFinished] = useState(false);
-  const [recallMode, setRecallMode] = useState(false);
-  const [showGerman, setShowGerman] = useState<{ [key: number]: boolean }>({});
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [showMeaning, setShowMeaning] = useState(false); // Flashcard modu: çeviri gizli/göster
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayingId, setCurrentPlayingId] = useState<number | null>(null);
   
@@ -73,21 +72,14 @@ export default function SentencesScreen() {
 
   useEffect(() => {
     loadCurrentLevel();
-    // Audio modunu ayarla
-    Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-    });
   }, []);
 
   // Component unmount olduğunda sesi durdur
   useEffect(() => {
     return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
+      AudioService.stop();
     };
-  }, [sound]);
+  }, []);
 
 
   const loadCurrentLevel = async () => {
@@ -106,19 +98,24 @@ export default function SentencesScreen() {
       setSentencesFinished(false);
       if (!currentLevel) return;
       
-      // Sadece mevcut seviyeden cümleleri yükle
-      // Bir seviye bitmeden üst seviyenin cümleleri gelmesin
-      const levelsToLoad: ('A1' | 'A2' | 'B1' | 'B2')[] = [currentLevel];
+      // Erişilebilen tüm seviyeleri belirle (currentLevel ve altındaki tüm seviyeler)
+      const allLevels: ('A1' | 'A2' | 'B1' | 'B2')[] = ['A1', 'A2', 'B1', 'B2'];
+      const currentLevelIndex = allLevels.indexOf(currentLevel);
+      const accessibleLevels = allLevels.slice(0, currentLevelIndex + 1);
       
-      // Tüm seviyelerden cümleleri yükle
+      console.log('SentencesScreen: Cümleler yükleniyor, erişilebilen seviyeler:', accessibleLevels);
+      
+      // Tüm erişilebilen seviyelerden cümleleri yükle
       const allSentences: Sentence[] = [];
-      for (const level of levelsToLoad) {
+      for (const level of accessibleLevels) {
         const levelSentences = await DataService.loadSentences(1000, level);
         allSentences.push(...levelSentences);
       }
       
+      console.log('SentencesScreen: Yüklenen toplam cümle sayısı:', allSentences.length);
+      
       const savedSentences = await StorageService.getSentences();
-      const today = new Date().toDateString();
+      const now = new Date();
       
       // Map kullanarak O(1) lookup için optimize et
       const savedSentencesMap = new Map<number, Sentence>();
@@ -149,42 +146,73 @@ export default function SentencesScreen() {
           
           // Saved sentences'den bilgileri al
           const saved = sentence.id ? savedSentencesMap.get(sentence.id) : null;
-          if (saved) {
-            return {
-              ...sentence,
-              practiced: saved.practiced || false,
-              practiced_date: saved.practiced_date,
-              daily_reviewed_date: saved.daily_reviewed_date,
-            };
+          const merged = saved ? {
+            ...sentence,
+            practiced: saved.practiced || false,
+            practiced_date: saved.practiced_date,
+            daily_reviewed_date: saved.daily_reviewed_date,
+            practicedCount: saved.practicedCount,
+            status: saved.status,
+          } : sentence;
+          
+          // Status hesapla (eğer yoksa)
+          if (!merged.status) {
+            const practicedCount = merged.practicedCount || 0;
+            if (practicedCount >= 2) {
+              merged.status = 'mastered';
+            } else if (practicedCount === 1 || merged.practiced_date) {
+              merged.status = 'learning';
+            } else {
+              merged.status = 'new';
+            }
           }
-          return sentence;
+          
+          // Review kontrolü
+          if (merged.status === 'mastered' && merged.next_review_date) {
+            const reviewDate = new Date(merged.next_review_date);
+            if (reviewDate <= now) {
+              merged.status = 'review';
+            }
+          } else if (merged.status === 'learning' && merged.next_review_date) {
+            const reviewDate = new Date(merged.next_review_date);
+            if (reviewDate <= now) {
+              merged.status = 'review';
+            }
+          }
+          
+          return merged;
         })
         .filter((s): s is Sentence => {
           if (!s) return false;
           const sAny = s as any;
           return !!(s.german_sentence || s.de || sAny.text_de);
-        })
-        .filter(sentence => {
-          // Sadece okunmamış cümleleri göster
-          if (sentence.practiced) return false;
-          
-          // Günlük modda: Bugün görüntülenmemiş cümleleri göster
-          if (!showAll) {
-            if (sentence.daily_reviewed_date) {
-              const reviewDate = new Date(sentence.daily_reviewed_date as string).toDateString();
-              if (reviewDate === today) {
-                return false; // Bugün zaten gösterilmiş
-              }
-            }
-          }
-          
-          return true;
         });
       
-      // Günlük modda ilk 5'i al, sınırsız modda hepsini göster
-      const sentencesToShow = showAll ? mergedSentences : mergedSentences.slice(0, 5);
+      // Öncelik sırasına göre filtrele ve sırala: review → learning → new
+      const reviewSentences = mergedSentences.filter(s => s.status === 'review');
+      const learningSentences = mergedSentences.filter(s => s.status === 'learning');
+      const newSentences = mergedSentences.filter(s => s.status === 'new');
+      
+      // Sıralama: review → learning → new
+      const sentencesToShow = [...reviewSentences, ...learningSentences, ...newSentences];
+      
+      // Boş image_path ve audio_path'leri temizle
+      sentencesToShow.forEach(sentence => {
+        if (sentence.image_path && (!sentence.image_path.trim() || sentence.image_path === '""' || sentence.image_path === '""')) {
+          sentence.image_path = null;
+        }
+        if (sentence.audio_path && (!sentence.audio_path.trim() || sentence.audio_path === '""' || sentence.audio_path === '""')) {
+          sentence.audio_path = null;
+        }
+      });
+      
       setSentences(sentencesToShow);
-      setCurrentIndex(0);
+      
+      // Kaydedilmiş index'i geri yükle
+      const savedIndex = await StorageService.getSentencesLastIndex();
+      const validIndex = savedIndex < sentencesToShow.length ? savedIndex : 0;
+      setCurrentIndex(validIndex);
+      setShowMeaning(false); // Yeni cümle için çeviriyi gizle
       position.setValue({ x: 0, y: 0 });
       
       if (sentencesToShow.length === 0) {
@@ -195,14 +223,14 @@ export default function SentencesScreen() {
     } finally {
       setLoading(false);
     }
-  }, [currentLevel, showAll]);
+  }, [currentLevel]);
 
   useEffect(() => {
     if (currentLevel) {
       loadSentences();
       position.setValue({ x: 0, y: 0 });
     }
-  }, [currentLevel, showAll, loadSentences]);
+  }, [currentLevel, loadSentences]);
 
   const handleSwipe = useCallback(async (direction: 'left' | 'right') => {
     const currentSentenceIndex = currentIndexRef.current;
@@ -244,10 +272,13 @@ export default function SentencesScreen() {
         const currentSentencesAfter = sentencesRef.current;
         
         if (nextIndex < currentSentencesAfter.length) {
-          // Sonraki cümle var
+          // Sonraki cümle var - index'i kaydet
+          StorageService.saveSentencesLastIndex(nextIndex);
+          setShowMeaning(false); // Yeni cümle için çeviriyi gizle
           return nextIndex;
         } else {
-          // Cümleler bitti
+          // Cümleler bitti - index'i sıfırla
+          StorageService.saveSentencesLastIndex(0);
           setSentencesFinished(true);
           return currentSentencesAfter.length;
         }
@@ -289,68 +320,35 @@ export default function SentencesScreen() {
     });
   }, [handleSwipe, position]);
 
-  const toggleShowGerman = () => {
-    setShowGerman({ ...showGerman, [currentIndex]: true });
-  };
 
   const playAudio = async (audioPath: string, sentenceId: number) => {
     try {
-      // Önceki sesi durdur
-      if (sound) {
-        await sound.unloadAsync();
-        setSound(null);
-      }
-      
       // Eğer aynı cümleyi tekrar çalıyorsak, sadece durdur
       if (currentPlayingId === sentenceId && isPlaying) {
+        AudioService.stop();
         setIsPlaying(false);
         setCurrentPlayingId(null);
         return;
       }
-      
-      // Ses dosyası yolu: assets/audio/ klasöründen yükle
-      let audioUri: string;
-      let debuggerHost = 'localhost';
-      
-      if (__DEV__) {
-        // Development: Metro bundler'ın IP adresini kullan
-        const metroPort = '8081';
-        
-        // Constants'tan IP adresini al
-        if (Constants.expoConfig?.hostUri) {
-          debuggerHost = Constants.expoConfig.hostUri.split(':')[0];
-        } else if (Constants.debuggerHost) {
-          debuggerHost = Constants.debuggerHost.split(':')[0];
-        } else {
-          console.warn('Metro bundler IP adresi bulunamadı, localhost kullanılıyor.');
-        }
-        
-        audioUri = `http://${debuggerHost}:${metroPort}/assets/audio/${encodeURIComponent(audioPath)}`;
-      } else {
-        // Production: Bundle'a dahil edilmiş asset'ler
-        audioUri = `asset:/audio/${audioPath}`;
-      }
-      
-      console.log('Playing audio:', audioUri);
-      
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: audioUri },
-        { shouldPlay: true }
-      );
-      
-      setSound(newSound);
+
       setIsPlaying(true);
       setCurrentPlayingId(sentenceId);
       
-      // Ses bittiğinde state'i güncelle
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
+      const success = await AudioService.playAudio(audioPath, `sentence_${sentenceId}`);
+      
+      if (!success) {
+        setIsPlaying(false);
+        setCurrentPlayingId(null);
+      } else {
+        // Ses çalma tamamlandığında state'i güncelle
+        // AudioService içinde zaten temizlik yapılıyor
+        setTimeout(() => {
           setIsPlaying(false);
           setCurrentPlayingId(null);
-        }
-      });
+        }, 100);
+      }
     } catch (error) {
-      console.error('Error playing audio:', error);
+      console.error('❌ Error in playAudio:', error);
       setIsPlaying(false);
       setCurrentPlayingId(null);
     }
@@ -374,34 +372,8 @@ export default function SentencesScreen() {
 
   if (!sentences || sentences.length === 0 || sentencesFinished || currentIndex >= sentences.length) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.controls}>
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={[styles.toggleButton, showAll && styles.toggleButtonActive]}
-              onPress={() => {
-                setShowAll(!showAll);
-                setSentencesFinished(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.toggleButtonText, showAll && styles.toggleButtonTextActive]}>
-                {showAll ? '📚 Sınırsız' : '📖 Günlük (5)'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toggleButton, recallMode && styles.toggleButtonActive]}
-              onPress={() => {
-                setRecallMode(!recallMode);
-                setShowGerman({});
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.toggleButtonText, recallMode && styles.toggleButtonTextActive]}>
-                {recallMode ? '🧠 Recall' : '📖 Normal'}
-              </Text>
-            </TouchableOpacity>
-          </View>
           {currentLevel && levelColors[currentLevel] && (
             <View style={styles.levelIndicator}>
               <Text style={styles.levelIndicatorText}>
@@ -413,31 +385,9 @@ export default function SentencesScreen() {
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>
             {sentencesFinished 
-              ? showAll 
-                ? '🎉 Tüm okunmamış cümleleri tamamladın!'
-                : '🎉 Günlük cümleleri tamamladın!\n\nSınırsız moda geçebilirsin.'
+              ? '🎉 Tüm cümleleri tamamladın!'
               : 'Bu seviye için cümle bulunamadı.'}
           </Text>
-          {sentencesFinished && !showAll && (
-            <TouchableOpacity
-              style={styles.switchModeButton}
-              onPress={() => {
-                setShowAll(true);
-                setSentencesFinished(false);
-                loadSentences();
-              }}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={[Colors.primary, Colors.primaryLight]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.switchModeButtonGradient}
-              >
-                <Text style={styles.switchModeButtonText}>📚 Sınırsız Moda Geç</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     );
@@ -455,35 +405,11 @@ export default function SentencesScreen() {
   const levelColor = levelColors[currentSentence.level] || Colors.primary;
   const germanText = currentSentence.german_sentence || currentSentence.de;
   const englishText = currentSentence.english_translation || currentSentence.tr || currentSentence.en;
-  const isGermanVisible = showGerman[currentIndex] || !recallMode;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Kontroller */}
       <View style={styles.controls}>
-        <View style={styles.toggleRow}>
-          <TouchableOpacity
-            style={[styles.toggleButton, showAll && styles.toggleButtonActive]}
-            onPress={() => setShowAll(!showAll)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.toggleButtonText, showAll && styles.toggleButtonTextActive]}>
-              {showAll ? '📚 Sınırsız' : '📖 Günlük (5)'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleButton, recallMode && styles.toggleButtonActive]}
-            onPress={() => {
-              setRecallMode(!recallMode);
-              setShowGerman({});
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.toggleButtonText, recallMode && styles.toggleButtonTextActive]}>
-              {recallMode ? '🧠 Recall' : '📖 Normal'}
-            </Text>
-          </TouchableOpacity>
-        </View>
         {currentLevel && levelColors[currentLevel] && (
           <View style={styles.levelIndicator}>
             <Text style={styles.levelIndicatorText}>
@@ -543,95 +469,107 @@ export default function SentencesScreen() {
           ]}
           {...(panResponder.current?.panHandlers || {})}
         >
-          <View style={styles.cardContent}>
-            {recallMode ? (
-              // Recall Mode: Önce İngilizce göster
-              <>
-                {englishText && (
-                  <View style={styles.meaningSection}>
-                    <Text style={styles.meaningLabel}>Anlam</Text>
-                    <Text style={styles.meaning} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.7}>
-                      {englishText}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setShowMeaning(!showMeaning)}
+            style={styles.cardContent}
+          >
+            {/* Modern Card Design with Color Accents */}
+            <View style={styles.cardWrapper}>
+              {/* Color Accent Bar */}
+              <View style={[styles.colorAccent, { backgroundColor: levelColor }]} />
+              
+              <View style={styles.cardBody}>
+                {/* Header */}
+                <View style={styles.header}>
+                  <View style={[styles.levelBadge, { backgroundColor: levelColor + '20', borderColor: levelColor }]}>
+                    <Text style={[styles.levelText, { color: levelColor }]}>
+                      {currentSentence.level}
                     </Text>
                   </View>
-                )}
-                {isGermanVisible ? (
-                  <View style={styles.sentenceSection}>
-                    <Text style={styles.sentenceLabel}>Almanca</Text>
-                    <Text style={styles.sentenceDE} numberOfLines={4} adjustsFontSizeToFit minimumFontScale={0.6}>
-                      {germanText}
-                    </Text>
+                  <View style={styles.headerRight}>
+                    {currentSentence.practicedCount && currentSentence.practicedCount >= 2 && (
+                      <View style={styles.masteredBadge}>
+                        <Text style={styles.masteredText}>⭐ Mastered</Text>
+                      </View>
+                    )}
+                    {/* Audio Button - Sağ Üst Köşe */}
+                    {currentSentence.audio_path && (
+                      <TouchableOpacity
+                        style={styles.audioButtonTop}
+                        onPress={() => currentSentence.audio_path && currentSentence.id && playAudio(currentSentence.audio_path, currentSentence.id)}
+                        activeOpacity={0.7}
+                      >
+                        <LinearGradient
+                          colors={currentPlayingId === currentSentence.id && isPlaying 
+                            ? [Colors.success, Colors.successLight]
+                            : [Colors.success, Colors.successLight]
+                          }
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.audioButtonGradientTop}
+                        >
+                          <Text style={styles.audioButtonTextTop}>
+                            {currentPlayingId === currentSentence.id && isPlaying ? '⏸️' : '🎵'}
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
                   </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.revealButton}
-                    onPress={toggleShowGerman}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={[Colors.primary, Colors.primaryLight]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.revealButtonGradient}
-                    >
-                      <Text style={styles.revealButtonText}>Cevabı Göster</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
-              </>
-            ) : (
-              // Normal Mode: Her ikisi de göster
-              <>
+                </View>
+
+                {/* Main Sentence - Large & Bold */}
                 <View style={styles.sentenceSection}>
                   <Text style={styles.sentenceDE} numberOfLines={4} adjustsFontSizeToFit minimumFontScale={0.6}>
                     {germanText}
                   </Text>
                 </View>
-                {englishText && (
-                  <View style={styles.meaningSection}>
-                    <Text style={styles.meaning} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.7}>
-                      {englishText}
-                    </Text>
+                
+                {/* Image Section */}
+                {currentSentence.image_path && 
+                 currentSentence.image_path !== '""' && 
+                 currentSentence.image_path.trim() && 
+                 currentSentence.image_path.trim().length > 0 && (
+                  <View style={styles.imageContainer}>
+                    <Image
+                      source={{ 
+                        uri: __DEV__ 
+                          ? `http://localhost:8081/assets/images/${encodeURIComponent(currentSentence.image_path.trim())}`
+                          : `asset:/images/${currentSentence.image_path.trim()}`
+                      }}
+                      style={styles.sentenceImage}
+                      resizeMode="contain"
+                      onError={(error) => {
+                        console.log('Image load error:', error.nativeEvent.error);
+                      }}
+                    />
                   </View>
                 )}
-              </>
-            )}
-            
-            {currentSentence.audio_path && (
-              <TouchableOpacity
-                style={styles.audioButton}
-                onPress={() => currentSentence.audio_path && currentSentence.id && playAudio(currentSentence.audio_path, currentSentence.id)}
-                activeOpacity={0.7}
-              >
-                <LinearGradient
-                  colors={currentPlayingId === currentSentence.id && isPlaying 
-                    ? [Colors.success, Colors.successLight]
-                    : [Colors.info, Colors.infoLight]
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.audioButtonGradient}
-                >
-                  <Text style={styles.audioButtonText}>
-                    {currentPlayingId === currentSentence.id && isPlaying ? '⏸️' : '🎵'}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
-            
-            <View style={styles.sentenceInfo}>
-              <View style={[styles.levelBadge, { backgroundColor: levelColor + '20' }]}>
-                <Text style={[styles.levelText, { color: levelColor }]}>
-                  {currentSentence.level}
-                </Text>
+                
+                {/* Translation Section */}
+                {showMeaning ? (
+                  englishText && (
+                    <View style={styles.meaningSection}>
+                      <View style={styles.meaningCard}>
+                        <Text style={styles.meaningLabel}>Çeviri</Text>
+                        <Text style={styles.meaning} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.7}>
+                          {englishText}
+                        </Text>
+                      </View>
+                    </View>
+                  )
+                ) : (
+                  <View style={styles.meaningSection}>
+                    <View style={styles.hintCard}>
+                      <Text style={styles.hintIcon}>👆</Text>
+                      <Text style={styles.hintText}>Dokunarak çeviriyi gör</Text>
+                    </View>
+                  </View>
+                )}
+                
               </View>
-              {currentSentence.practiced && (
-                <View style={[styles.practicedBadge, { backgroundColor: Colors.success + '20' }]}>
-                  <Text style={styles.practicedText}>✓ Okundu</Text>
-                </View>
-              )}
             </View>
-          </View>
+          </TouchableOpacity>
         </Animated.View>
       </View>
 
@@ -642,7 +580,9 @@ export default function SentencesScreen() {
             style={styles.navButton}
             onPress={() => {
               if (currentIndex > 0) {
-                setCurrentIndex(currentIndex - 1);
+                const newIndex = currentIndex - 1;
+                setCurrentIndex(newIndex);
+                StorageService.saveSentencesLastIndex(newIndex);
                 position.setValue({ x: 0, y: 0 });
               }
             }}
@@ -784,51 +724,122 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardContent: {
-    padding: Spacing.xl,
+    width: '100%',
+    height: '100%',
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+  },
+  cardWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    minHeight: 450,
+  },
+  colorAccent: {
+    width: 6,
+    borderRadius: BorderRadius.xl,
+  },
+  cardBody: {
+    flex: 1,
+    padding: Spacing.xxl,
+    justifyContent: 'space-between',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 400,
+    marginBottom: Spacing.xl,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   sentenceSection: {
-    marginBottom: Spacing.lg,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: Spacing.md,
-  },
-  sentenceLabel: {
-    ...Typography.bodySmall,
-    color: Colors.textTertiary,
-    marginBottom: Spacing.sm,
-    fontWeight: '600',
+    marginVertical: Spacing.lg,
   },
   sentenceDE: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: '800',
     color: Colors.textPrimary,
     textAlign: 'center',
-    lineHeight: 32,
-    letterSpacing: -0.3,
+    lineHeight: 40,
+    letterSpacing: -0.6,
     width: '100%',
   },
   meaningSection: {
-    marginBottom: Spacing.lg,
-    alignItems: 'center',
+    marginVertical: Spacing.lg,
     width: '100%',
-    paddingHorizontal: Spacing.md,
+  },
+  meaningCard: {
+    backgroundColor: Colors.info + '15',
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: Colors.info + '30',
   },
   meaningLabel: {
-    ...Typography.bodySmall,
-    color: Colors.textTertiary,
+    ...Typography.caption,
+    color: Colors.info,
+    fontWeight: '700',
     marginBottom: Spacing.sm,
-    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   meaning: {
-    fontSize: 20,
+    fontSize: 24,
     color: Colors.info,
     textAlign: 'center',
+    fontWeight: '700',
+    lineHeight: 32,
+  },
+  hintCard: {
+    backgroundColor: Colors.backgroundTertiary,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+  },
+  hintIcon: {
+    fontSize: 36,
+    marginBottom: Spacing.sm,
+  },
+  hintText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
     fontWeight: '600',
-    lineHeight: 28,
+  },
+  imageContainer: {
+    marginVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
     width: '100%',
+  },
+  sentenceImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.backgroundTertiary,
+  },
+  audioButtonTop: {
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+    ...Shadows.colored,
+  },
+  audioButtonGradientTop: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  audioButtonTextTop: {
+    fontSize: 24,
   },
   revealButton: {
     marginTop: Spacing.lg,
@@ -849,37 +860,44 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   audioButton: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.md,
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
     ...Shadows.colored,
   },
   audioButtonGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
   },
   audioButtonText: {
-    fontSize: 28,
-  },
-  sentenceInfo: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+    fontSize: 32,
   },
   levelBadge: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
+    borderWidth: 1.5,
   },
   levelText: {
     ...Typography.caption,
     fontWeight: '700',
+    fontSize: 11,
+  },
+  masteredBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.success + '20',
+    borderWidth: 1,
+    borderColor: Colors.success,
+  },
+  masteredText: {
+    ...Typography.caption,
+    color: Colors.success,
+    fontWeight: '700',
+    fontSize: 11,
   },
   practicedBadge: {
     paddingHorizontal: Spacing.md,

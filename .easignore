@@ -1,0 +1,72 @@
+# EAS Build - Gereksiz Dosyaları Hariç Tut
+
+# Node modules (EAS build'de yeniden yüklenir)
+node_modules/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+*.apk
+*.aab
+*.ipa
+
+# Documentation (gereksiz)
+*.md
+!README.md
+docs/
+
+# Scripts (build'de kullanılmaz)
+scripts/
+
+# Source text files (JSON'a dönüştürülmüş)
+*.txt
+!package.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Test files
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+App.test.tsx
+
+# Expo
+.expo/
+
+# Android build artifacts
+android/.gradle/
+android/app/build/
+android/build/
+android/.idea/
+android/local.properties
+
+# Package lock (EAS build'de yeniden oluşturulur)
+package-lock.json
+
+

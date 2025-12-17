@@ -9,7 +9,7 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { StorageService } from '../services/StorageService';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../constants/theme';
@@ -573,3 +573,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+

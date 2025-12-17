@@ -14,31 +14,20 @@ npm start
 
 ## 📚 Veri Kaynakları
 
-Bu uygulama 4 ana veri kaynağı kullanır:
+Bu uygulama şu veri kaynaklarını kullanır:
 
-1. **German-Resources** - Dersler, diyaloglar, okuma metinleri
-2. **German Vocabulary** - A1-B2 kelime listeleri (Türkçe anlamlı)
-3. **Tatoeba** - Almanca cümle örnekleri
-4. **FrequencyWords** - Kelime sıklık listesi (önceliklendirme)
+1. **Langenscheidt Basic German Vocabulary** - Kelime listeleri (vocab_langenscheidt.json)
+2. **German 7k Sentences** - Almanca cümle örnekleri (sentences_7k.json)
 
-### Veri Entegrasyonu
-
-Veri kaynaklarını entegre etmek için `docs/DATA_INTEGRATION.md` dosyasına bakın.
-
-**Hızlı Başlangıç:**
-1. `scripts/` klasöründeki scriptleri kullanarak verileri işleyin
-2. İşlenmiş verileri `assets/data/` klasörüne kopyalayın
-3. `node scripts/validate_data.js` ile doğrulayın
+Veriler `assets/data/` klasöründeki JSON dosyalarından yüklenir.
 
 ## ✨ Özellikler
 
-- 📚 **Dersler**: A1-A2 seviyesinde yapılandırılmış dersler
-- 📖 **Kelimeler**: SRS (Spaced Repetition) ile kelime öğrenme
-- 💬 **Cümle Çalışması**: Günlük cümle pratiği
-- 📄 **Okuma**: Kısa metinler ve comprehension soruları
-- 📝 **Gramer**: Gramer konuları ve örnekler
+- 📖 **Kelimeler**: Spaced Repetition (SRS) ile kelime öğrenme ve tekrar sistemi
+- 💬 **Cümle Çalışması**: Günlük cümle pratiği ve tekrar mekanizması
 - 📊 **İlerleme Takibi**: Streak, istatistikler ve seviye ilerlemesi
-- 🎯 **Kelime Önceliklendirme**: FrequencyWords ile en önemli kelimeler
+- 🎯 **Akıllı Tekrar**: Öğrenilen kelimeler zamanı geldiğinde otomatik tekrar gösterilir
+- 📱 **Offline Çalışma**: İnternet bağlantısı olmadan tam fonksiyonel
 
 ## 📁 Proje Yapısı
 
@@ -51,17 +40,17 @@ src/
 
 assets/
 └── data/            # Veri dosyaları (JSON)
-
-scripts/              # Veri işleme scriptleri
-docs/                 # Dokümantasyon
+    ├── vocab_langenscheidt.json
+    └── german_sentences/
+        └── sentences_7k.json
 ```
 
 ## 🔧 Geliştirme
 
-- React Native + TypeScript
-- Expo
+- React Native CLI + TypeScript
 - React Navigation
 - AsyncStorage (local storage)
+- react-native-sound (ses çalma)
 
 ## 📝 Notlar
 

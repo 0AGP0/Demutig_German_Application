@@ -9,10 +9,14 @@ export interface Vocabulary {
   example_sentence?: string;
   example_translation?: string;
   audio_path?: string | null;
+  image_path?: string | null;
   level: 'A1' | 'A2' | 'B1' | 'B2';
   known: boolean;
   review_count?: number;
   last_reviewed?: string;
+  // Mastered sistemi
+  knownCount?: number; // Kaç kez "Biliyorum" dedi (2 = mastered)
+  status?: 'new' | 'learning' | 'review' | 'mastered'; // Kart durumu
   // Test sistemi için yeni alanlar
   correct_count?: number; // Vocabulary swipe için doğru cevap sayısı
   wrong_count?: number; // Vocabulary swipe için yanlış cevap sayısı

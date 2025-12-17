@@ -1,17 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Vocabulary } from '../models/Vocabulary';
 import { Sentence } from '../models/Sentence';
-import { Reading } from '../models/Reading';
 import { UserProgress } from '../models/Progress';
 
 const STORAGE_KEYS = {
   VOCABULARY: '@german_app:vocabulary',
   SENTENCES: '@german_app:sentences',
-  READINGS: '@german_app:readings',
   PROGRESS: '@german_app:progress',
   LAST_STUDY_DATE: '@german_app:last_study_date',
   STREAK_DAYS: '@german_app:streak_days',
   TEST_PROGRESS: '@german_app:test_progress',
+  TEST_FINISHED: '@german_app:test_finished',
+  VOCABULARY_LAST_INDEX: '@german_app:vocabulary_last_index',
+  SENTENCES_LAST_INDEX: '@german_app:sentences_last_index',
 };
 
 // Cache mekanizması
@@ -28,13 +29,21 @@ export class StorageService {
     cacheTimestamp = 0;
   }
   // Kelime durumunu güncelle (yeni format: id veya word ile)
+  // TestService ile aynı eşleşme mantığını kullan: id öncelikli, sonra german, sonra word
   static async updateVocabularyStatus(identifier: string | number, known: boolean, wordData?: any): Promise<void> {
     try {
-      const vocab = await this.getVocabulary();
-      let index = vocab.findIndex(v => 
-        (typeof identifier === 'number' && v.id === identifier) ||
-        (typeof identifier === 'string' && (v.word === identifier || v.german === identifier))
-      );
+      // Cache'i bypass et - her zaman güncel verileri al
+      const vocab = await this.getVocabulary(false);
+      let index = -1;
+      
+      // TestService ile aynı eşleşme mantığı: id öncelikli, sonra german, sonra word
+      if (typeof identifier === 'number') {
+        // Number ise id ile eşleştir
+        index = vocab.findIndex(v => v.id === identifier);
+      } else if (typeof identifier === 'string') {
+        // String ise önce german ile, sonra word ile eşleştir
+        index = vocab.findIndex(v => v.german === identifier || v.word === identifier);
+      }
       
       // Eğer kelime bulunamadıysa ve wordData varsa, yeni kelime ekle
       if (index === -1 && wordData) {
@@ -46,6 +55,8 @@ export class StorageService {
           correct_count: known ? 1 : 0,
           wrong_count: known ? 0 : 1,
           daily_reviewed_date: new Date().toISOString(),
+          knownCount: known ? 1 : 0,
+          status: known ? 'learning' : 'new',
         };
         if (known) {
           newWord.learned_date = new Date().toISOString();
@@ -61,9 +72,31 @@ export class StorageService {
         vocab[index].last_reviewed = now;
         vocab[index].review_count = (vocab[index].review_count || 0) + 1;
         
-        // İlk öğrenme tarihi (sadece known: true olduğunda)
-        if (known && !vocab[index].learned_date) {
-          vocab[index].learned_date = now;
+        // Mastered sistemi: knownCount takibi
+        if (known) {
+          // Sağa swipe (Biliyorum) → knownCount +1
+          vocab[index].knownCount = (vocab[index].knownCount || 0) + 1;
+          const currentKnownCount = vocab[index].knownCount || 0;
+          if (currentKnownCount >= 2) {
+            vocab[index].status = 'mastered';
+            vocab[index].known = true;
+          } else {
+            vocab[index].status = 'learning';
+          }
+          // İlk öğrenme tarihi
+          if (!vocab[index].learned_date) {
+            vocab[index].learned_date = now;
+          }
+        } else {
+          // Sola swipe (Bilmiyorum) → knownCount = 0
+          vocab[index].knownCount = 0;
+          const reviewCount = vocab[index].review_count || 0;
+          if (reviewCount > 1) {
+            vocab[index].status = 'learning'; // Daha önce görülmüş
+          } else {
+            vocab[index].status = 'new'; // İlk kez görülüyor
+          }
+          vocab[index].known = false;
         }
         
         // Bugün değerlendirilen kelimeleri takip et (Dashboard için)
@@ -96,18 +129,29 @@ export class StorageService {
         }
         
         // Spaced repetition: Bir sonraki tekrar tarihini hesapla
+        const currentKnownCount = vocab[index].knownCount || 0;
+        
         if (known) {
-          // Doğru cevap: Daha uzun süre sonra tekrar et
-          const daysToAdd = Math.min(30, Math.pow(2, vocab[index].review_count || 1)); // 2, 4, 8, 16, 30 gün
-          const nextReview = new Date();
-          nextReview.setDate(nextReview.getDate() + daysToAdd);
-          vocab[index].next_review_date = nextReview.toISOString();
+          // Sağa swipe (Biliyorum)
+          if (currentKnownCount >= 2) {
+            // Mastered: 7 gün sonra tekrar et (pekiştirme)
+            const nextReview = new Date();
+            nextReview.setDate(nextReview.getDate() + 7);
+            vocab[index].next_review_date = nextReview.toISOString();
+            vocab[index].status = 'review'; // Tekrar zamanı gelince review olacak
+          } else {
+            // Learning: 1 gün sonra tekrar et (her "Biliyorum" 1 gün sonra)
+            const nextReview = new Date();
+            nextReview.setDate(nextReview.getDate() + 1);
+            vocab[index].next_review_date = nextReview.toISOString();
+            vocab[index].status = 'review'; // Tekrar zamanı gelince review olacak
+          }
         } else {
-          // Yanlış cevap: Daha kısa süre sonra tekrar et
-          const daysToAdd = 1; // 1 gün sonra
+          // Sola swipe (Bilmiyorum): 1 gün sonra tekrar et
           const nextReview = new Date();
-          nextReview.setDate(nextReview.getDate() + daysToAdd);
+          nextReview.setDate(nextReview.getDate() + 1);
           vocab[index].next_review_date = nextReview.toISOString();
+          vocab[index].status = 'learning'; // Learning modunda, tekrar öğren
         }
         
         await AsyncStorage.setItem(STORAGE_KEYS.VOCABULARY, JSON.stringify(vocab));
@@ -120,13 +164,19 @@ export class StorageService {
 
   // Test sonucunu kaydet - SADECE known/unknown takibi
   // testMode: 'known' = Biliyorum modu, 'unknown' = Bilmiyorum modu
+  // TestService ile aynı eşleşme mantığını kullan
   static async recordTestResult(identifier: string | number, isCorrect: boolean, wordData?: any, testMode: 'known' | 'unknown' | 'review' = 'unknown'): Promise<void> {
     try {
-      const vocab = await this.getVocabulary();
-      let index = vocab.findIndex(v => 
-        (typeof identifier === 'number' && v.id === identifier) ||
-        (typeof identifier === 'string' && (v.word === identifier || v.german === identifier))
-      );
+      // Cache'i bypass et - her zaman güncel verileri al
+      const vocab = await this.getVocabulary(false);
+      let index = -1;
+      
+      // TestService ile aynı eşleşme mantığı: id öncelikli, sonra german, sonra word
+      if (typeof identifier === 'number') {
+        index = vocab.findIndex(v => v.id === identifier);
+      } else if (typeof identifier === 'string') {
+        index = vocab.findIndex(v => v.german === identifier || v.word === identifier);
+      }
       
       // Eğer kelime bulunamadıysa ve wordData varsa, yeni kelime ekle
       if (index === -1 && wordData) {
@@ -230,19 +280,51 @@ export class StorageService {
         // Review count güncelle
         sentences[index].review_count = (sentences[index].review_count || 0) + 1;
         
-        // Spaced repetition: Bir sonraki tekrar tarihini hesapla
+        // Mastered sistemi: practicedCount takibi
         if (practiced) {
-          // Okudum/Bildim: Daha uzun süre sonra tekrar et
-          const daysToAdd = Math.min(30, Math.pow(2, sentences[index].review_count || 1)); // 2, 4, 8, 16, 30 gün
-          const nextReview = new Date();
-          nextReview.setDate(nextReview.getDate() + daysToAdd);
-          sentences[index].next_review_date = nextReview.toISOString();
+          // Sağa swipe (Okudum/Biliyorum) → practicedCount +1
+          sentences[index].practicedCount = (sentences[index].practicedCount || 0) + 1;
+          if (sentences[index].practicedCount >= 2) {
+            sentences[index].status = 'mastered';
+            sentences[index].practiced = true;
+          } else {
+            sentences[index].status = 'learning';
+          }
         } else {
-          // Okumadım/Bilmediğim: Daha kısa süre sonra tekrar et
-          const daysToAdd = 1; // 1 gün sonra
+          // Sola swipe (Okumadım/Bilmediğim) → practicedCount = 0
+          sentences[index].practicedCount = 0;
+          if (sentences[index].review_count > 1) {
+            sentences[index].status = 'learning'; // Daha önce görülmüş
+          } else {
+            sentences[index].status = 'new'; // İlk kez görülüyor
+          }
+          sentences[index].practiced = false;
+        }
+        
+        // Spaced repetition: Bir sonraki tekrar tarihini hesapla
+        const currentPracticedCount = sentences[index].practicedCount || 0;
+        
+        if (practiced) {
+          // Sağa swipe (Okudum/Biliyorum)
+          if (currentPracticedCount >= 2) {
+            // Mastered: 7 gün sonra tekrar et (pekiştirme)
+            const nextReview = new Date();
+            nextReview.setDate(nextReview.getDate() + 7);
+            sentences[index].next_review_date = nextReview.toISOString();
+            sentences[index].status = 'review'; // Tekrar zamanı gelince review olacak
+          } else {
+            // Learning: 1 gün sonra tekrar et (her "Okudum" 1 gün sonra)
+            const nextReview = new Date();
+            nextReview.setDate(nextReview.getDate() + 1);
+            sentences[index].next_review_date = nextReview.toISOString();
+            sentences[index].status = 'review'; // Tekrar zamanı gelince review olacak
+          }
+        } else {
+          // Sola swipe (Okumadım/Bilmediğim): 1 gün sonra tekrar et
           const nextReview = new Date();
-          nextReview.setDate(nextReview.getDate() + daysToAdd);
+          nextReview.setDate(nextReview.getDate() + 1);
           sentences[index].next_review_date = nextReview.toISOString();
+          sentences[index].status = 'learning'; // Learning modunda, tekrar öğren
         }
         
         // daily_reviewed_date güncelle (Dashboard için)
@@ -275,11 +357,13 @@ export class StorageService {
         const newSentence: any = {
           ...sentenceData,
           id: sentenceId,
-          practiced: practiced, // Bu değer sentenceData'daki practiced değerini override eder
+          practiced: practiced,
           practiced_date: now,
           daily_reviewed_date: now,
           review_count: reviewCount,
           next_review_date: nextReview.toISOString(),
+          practicedCount: practiced ? 1 : 0,
+          status: practiced ? 'learning' : 'new',
         };
         sentences.push(newSentence);
         await AsyncStorage.setItem(STORAGE_KEYS.SENTENCES, JSON.stringify(sentences));
@@ -404,32 +488,6 @@ export class StorageService {
     }
   }
 
-  // Okuma ilerlemesini kaydet
-  static async saveReadingProgress(reading: Reading): Promise<void> {
-    try {
-      const readings = await this.getReadings();
-      const index = readings.findIndex(r => r.id === reading.id);
-      if (index !== -1) {
-        readings[index] = reading;
-      } else {
-        readings.push(reading);
-      }
-      await AsyncStorage.setItem(STORAGE_KEYS.READINGS, JSON.stringify(readings));
-    } catch (error) {
-      console.error('Error saving reading progress:', error);
-    }
-  }
-
-  // Okumaları getir
-  static async getReadings(): Promise<Reading[]> {
-    try {
-      const data = await AsyncStorage.getItem(STORAGE_KEYS.READINGS);
-      return data ? JSON.parse(data) : [];
-    } catch (error) {
-      console.error('Error getting readings:', error);
-      return [];
-    }
-  }
 
   // İlerlemeyi kaydet
   static async saveProgress(progress: UserProgress): Promise<void> {
@@ -533,21 +591,111 @@ export class StorageService {
     }
   }
 
+  // Test bitmiş durumunu kaydet
+  static async saveTestFinished(
+    contentType: 'words' | 'sentences',
+    testMode: 'known' | 'unknown' | 'review' | 'mixed',
+    level: 'A1' | 'A2' | 'B1' | 'B2',
+    finished: boolean
+  ): Promise<void> {
+    try {
+      const key = `${STORAGE_KEYS.TEST_FINISHED}_${contentType}_${testMode}_${level}`;
+      if (finished) {
+        await AsyncStorage.setItem(key, 'true');
+      } else {
+        await AsyncStorage.removeItem(key);
+      }
+    } catch (error) {
+      console.error('Error saving test finished:', error);
+    }
+  }
+
+  // Test bitmiş durumunu yükle
+  static async loadTestFinished(
+    contentType: 'words' | 'sentences',
+    testMode: 'known' | 'unknown' | 'review' | 'mixed',
+    level: 'A1' | 'A2' | 'B1' | 'B2'
+  ): Promise<boolean> {
+    try {
+      const key = `${STORAGE_KEYS.TEST_FINISHED}_${contentType}_${testMode}_${level}`;
+      const data = await AsyncStorage.getItem(key);
+      return data === 'true';
+    } catch (error) {
+      console.error('Error loading test finished:', error);
+      return false;
+    }
+  }
+
+  // Vocabulary için son index'i kaydet
+  static async saveVocabularyLastIndex(index: number): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.VOCABULARY_LAST_INDEX, String(index));
+    } catch (error) {
+      console.error('Error saving vocabulary last index:', error);
+    }
+  }
+
+  // Vocabulary için son index'i getir
+  static async getVocabularyLastIndex(): Promise<number> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.VOCABULARY_LAST_INDEX);
+      return data ? parseInt(data, 10) : 0;
+    } catch (error) {
+      console.error('Error getting vocabulary last index:', error);
+      return 0;
+    }
+  }
+
+  // Sentences için son index'i kaydet
+  static async saveSentencesLastIndex(index: number): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.SENTENCES_LAST_INDEX, String(index));
+    } catch (error) {
+      console.error('Error saving sentences last index:', error);
+    }
+  }
+
+  // Sentences için son index'i getir
+  static async getSentencesLastIndex(): Promise<number> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.SENTENCES_LAST_INDEX);
+      return data ? parseInt(data, 10) : 0;
+    } catch (error) {
+      console.error('Error getting sentences last index:', error);
+      return 0;
+    }
+  }
+
   // Tüm verileri sıfırla (geliştirme için)
   static async clearAllData(): Promise<void> {
     try {
+      // AsyncStorage'dan tüm anahtarları temizle
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.VOCABULARY,
         STORAGE_KEYS.SENTENCES,
-        STORAGE_KEYS.READINGS,
         STORAGE_KEYS.PROGRESS,
         STORAGE_KEYS.LAST_STUDY_DATE,
         STORAGE_KEYS.STREAK_DAYS,
         STORAGE_KEYS.TEST_PROGRESS,
+        STORAGE_KEYS.TEST_FINISHED,
+        STORAGE_KEYS.VOCABULARY_LAST_INDEX,
+        STORAGE_KEYS.SENTENCES_LAST_INDEX,
       ]);
-      console.log('All data cleared');
+      
+      // Test progress ve finished için tüm kombinasyonları temizle
+      const allKeys = await AsyncStorage.getAllKeys();
+      const testProgressKeys = allKeys.filter(key => key.startsWith(STORAGE_KEYS.TEST_PROGRESS));
+      const testFinishedKeys = allKeys.filter(key => key.startsWith(STORAGE_KEYS.TEST_FINISHED));
+      if (testProgressKeys.length > 0 || testFinishedKeys.length > 0) {
+        await AsyncStorage.multiRemove([...testProgressKeys, ...testFinishedKeys]);
+      }
+      
+      // Cache'i de temizle
+      this.clearCache();
+      
+      console.log('✅ Tüm veriler temizlendi');
     } catch (error) {
-      console.error('Error clearing data:', error);
+      console.error('❌ Veri temizleme hatası:', error);
     }
   }
 }

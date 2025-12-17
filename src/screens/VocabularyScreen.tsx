@@ -8,11 +8,15 @@ import {
   Dimensions,
   Animated,
   PanResponder,
+  Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DataService } from '../services/DataService';
 import { StorageService } from '../services/StorageService';
 import { ProgressService } from '../services/ProgressService';
+import { TestService, TestMode } from '../services/TestService';
+import { AudioService } from '../services/AudioService';
 import { Vocabulary } from '../models/Vocabulary';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../constants/theme';
 
@@ -21,12 +25,15 @@ const SWIPE_THRESHOLD = 80; // Swipe için minimum mesafe (daha hassas)
 const SWIPE_VELOCITY = 0.3; // Swipe hızı (daha hassas)
 
 export default function VocabularyScreen() {
+  const insets = useSafeAreaInsets();
   const [words, setWords] = useState<Vocabulary[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentLevel, setCurrentLevel] = useState<'A1' | 'A2' | 'B1' | 'B2'>('A1');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [showAll, setShowAll] = useState(false);
   const [wordsFinished, setWordsFinished] = useState(false);
+  const [showMeaning, setShowMeaning] = useState(false); // Flashcard modu: anlam gizli/göster
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentPlayingId, setCurrentPlayingId] = useState<number | string | null>(null);
   
   // Animasyon değerleri - useRef ile sakla
   const position = useRef(new Animated.ValueXY()).current;
@@ -71,11 +78,29 @@ export default function VocabularyScreen() {
     try {
       setLoading(true);
       setWordsFinished(false);
-      if (!currentLevel) return;
+      if (!currentLevel) {
+        console.log('VocabularyScreen: currentLevel yok, kelimeler yüklenmiyor');
+        return;
+      }
       
-      const allWords = await DataService.loadVocabulary(currentLevel);
+      // Erişilebilen tüm seviyeleri belirle (currentLevel ve altındaki tüm seviyeler)
+      const allLevels: ('A1' | 'A2' | 'B1' | 'B2')[] = ['A1', 'A2', 'B1', 'B2'];
+      const currentLevelIndex = allLevels.indexOf(currentLevel);
+      const accessibleLevels = allLevels.slice(0, currentLevelIndex + 1);
+      
+      console.log('VocabularyScreen: Kelimeler yükleniyor, erişilebilen seviyeler:', accessibleLevels);
+      
+      // Tüm erişilebilen seviyelerden kelimeleri yükle
+      const allWords: Vocabulary[] = [];
+      for (const level of accessibleLevels) {
+        const levelWords = await DataService.loadVocabulary(level);
+        allWords.push(...levelWords);
+      }
+      
+      console.log('VocabularyScreen: Yüklenen toplam kelime sayısı:', allWords.length);
       const savedWords = await StorageService.getVocabulary();
-      const today = new Date().toDateString();
+      console.log('VocabularyScreen: Kaydedilmiş kelime sayısı:', savedWords.length);
+      const now = new Date();
       
       // Map kullanarak O(1) lookup için optimize et
       const savedWordsMap = new Map<string | number, Vocabulary>();
@@ -84,49 +109,100 @@ export default function VocabularyScreen() {
         if (key) savedWordsMap.set(key, w);
       });
       
-      // Bilinmeyen kelimeleri göster (henüz öğrenilmemiş)
+      // Merge et ve status hesapla
       const mergedWords = allWords.map(word => {
         const identifier = word.german || word.word || word.id;
         const saved = identifier ? savedWordsMap.get(identifier) : null;
-        return saved ? { ...word, ...saved } : word;
-      }).filter(word => {
-        // Sadece bilinmeyen kelimeler
-        if (word.known) return false;
+        const merged = saved ? { ...word, ...saved } : word;
         
-        // Günlük modda: Bugün görüntülenmemiş kelimeleri göster
-        // Sınırsız modda: Tüm bilinmeyen kelimeleri göster (daily_reviewed_date filtresi yok)
-        if (!showAll) {
-          // Günlük mod: daily_reviewed_date bugün ise, bu kelime bugün zaten gösterilmiş
-          if (word.daily_reviewed_date) {
-            const reviewDate = new Date(word.daily_reviewed_date as string).toDateString();
-            if (reviewDate === today) {
-              return false; // Bugün zaten gösterilmiş, günlük modda tekrar gösterme
-            }
+        // Status hesapla (eğer yoksa)
+        if (!merged.status) {
+          const knownCount = merged.knownCount || 0;
+          if (knownCount >= 2) {
+            merged.status = 'mastered';
+          } else if (knownCount === 1 || merged.last_reviewed) {
+            merged.status = 'learning';
+          } else {
+            merged.status = 'new';
           }
         }
-        // Sınırsız modda: Tüm bilinmeyen kelimeleri göster (filtre yok)
         
-        return true;
+        // Review kontrolü
+        if (merged.status === 'mastered' && merged.next_review_date) {
+          const reviewDate = new Date(merged.next_review_date);
+          if (reviewDate <= now) {
+            merged.status = 'review';
+          }
+        } else if (merged.status === 'learning' && merged.next_review_date) {
+          const reviewDate = new Date(merged.next_review_date);
+          if (reviewDate <= now) {
+            merged.status = 'review';
+          }
+        }
+        
+        return merged;
       });
       
-      // Günlük modda ilk 10'u al, sınırsız modda hepsini göster
-      const wordsToShow = showAll ? mergedWords : mergedWords.slice(0, 10);
+      // Öncelik sırasına göre filtrele ve sırala: review → learning → new
+      const reviewWords = mergedWords.filter(w => w.status === 'review');
+      const learningWords = mergedWords.filter(w => w.status === 'learning');
+      const newWords = mergedWords.filter(w => w.status === 'new');
+      
+      // Zorluk seviyesine göre sırala (zor olanlar önce)
+      reviewWords.sort((a, b) => {
+        const diffA = a.difficulty_level || 1;
+        const diffB = b.difficulty_level || 1;
+        return diffB - diffA;
+      });
+      
+      // Sıralama: review → learning → new
+      const wordsToShow = [...reviewWords, ...learningWords, ...newWords];
+      
+      console.log('VocabularyScreen: Gösterilecek kelime sayısı:', wordsToShow.length);
+      console.log('VocabularyScreen: Review:', reviewWords.length, 'Learning:', learningWords.length, 'New:', newWords.length);
+      
+      // Boş image_path'leri temizle
+      wordsToShow.forEach(word => {
+        if (word.image_path && (!word.image_path.trim() || word.image_path === '""' || word.image_path === '""')) {
+          word.image_path = null;
+        }
+        if (word.audio_path && (!word.audio_path.trim() || word.audio_path === '""' || word.audio_path === '""')) {
+          word.audio_path = null;
+        }
+      });
+      
       setWords(wordsToShow);
-      setCurrentIndex(0);
+      
+      // Kaydedilmiş index'i geri yükle
+      const savedIndex = await StorageService.getVocabularyLastIndex();
+      const validIndex = savedIndex < wordsToShow.length ? savedIndex : 0;
+      setCurrentIndex(validIndex);
+      setShowMeaning(false); // Yeni kelime için anlamı gizle
       position.setValue({ x: 0, y: 0 });
       
       if (wordsToShow.length === 0) {
+        console.log('VocabularyScreen: Hiç kelime bulunamadı!');
         setWordsFinished(true);
       }
     } catch (error) {
-      console.error('Error loading words:', error);
+      console.error('VocabularyScreen: Error loading words:', error);
+      console.error('VocabularyScreen: Error details:', error);
+      setWords([]);
+      setWordsFinished(true);
     } finally {
       setLoading(false);
     }
-  }, [currentLevel, showAll]);
+  }, [currentLevel]);
 
   useEffect(() => {
     loadCurrentLevel();
+  }, []);
+
+  // Component unmount olduğunda sesi durdur
+  useEffect(() => {
+    return () => {
+      AudioService.stop();
+    };
   }, []);
 
   useEffect(() => {
@@ -134,7 +210,7 @@ export default function VocabularyScreen() {
       loadWords();
       position.setValue({ x: 0, y: 0 });
     }
-  }, [currentLevel, showAll, loadWords]);
+  }, [currentLevel, loadWords]);
 
   // useRef ile currentIndex'i takip et - closure sorununu çöz
   const currentIndexRef = useRef(currentIndex);
@@ -192,10 +268,13 @@ export default function VocabularyScreen() {
         const currentWordsAfter = wordsRef.current;
         
         if (nextIndex < currentWordsAfter.length) {
-          // Sonraki kelime var
+          // Sonraki kelime var - index'i kaydet
+          StorageService.saveVocabularyLastIndex(nextIndex);
+          setShowMeaning(false); // Yeni kelime için anlamı gizle
           return nextIndex;
         } else {
-          // Kelimeler bitti, mesaj göster
+          // Kelimeler bitti, mesaj göster - index'i sıfırla
+          StorageService.saveVocabularyLastIndex(0);
           setWordsFinished(true);
           return currentWordsAfter.length; // Index'i son kelimeden sonra tut
         }
@@ -235,6 +314,46 @@ export default function VocabularyScreen() {
     });
   }, [handleSwipe, position]);
 
+  const playAudio = async (audioPath: string, wordId: number | string) => {
+    try {
+      console.log('🎵 VocabularyScreen.playAudio çağrıldı:', { audioPath, wordId });
+      
+      // Eğer aynı kelimeyi tekrar çalıyorsak, sadece durdur
+      if (currentPlayingId === wordId && isPlaying) {
+        console.log('🛑 Aynı kelime çalıyor, durduruluyor');
+        AudioService.stop();
+        setIsPlaying(false);
+        setCurrentPlayingId(null);
+        return;
+      }
+
+      console.log('▶️ Ses çalmaya başlanıyor...');
+      setIsPlaying(true);
+      setCurrentPlayingId(wordId);
+      
+      // ID'yi string'e çevir (number ise string'e çevir)
+      const wordIdStr = String(wordId);
+      const success = await AudioService.playAudio(audioPath, `word_${wordIdStr}`);
+      console.log('🎵 AudioService.playAudio sonucu:', success);
+      
+      if (!success) {
+        console.error('❌ Ses çalma başarısız!');
+        setIsPlaying(false);
+        setCurrentPlayingId(null);
+      } else {
+        // Ses çalma tamamlandığında state'i güncelle
+        // AudioService içinde zaten temizlik yapılıyor
+        setTimeout(() => {
+          setIsPlaying(false);
+          setCurrentPlayingId(null);
+        }, 100);
+      }
+    } catch (error) {
+      console.error('❌ Error in VocabularyScreen.playAudio:', error);
+      setIsPlaying(false);
+      setCurrentPlayingId(null);
+    }
+  };
 
   const levelColors: Record<string, string> = {
     A1: Colors.levelA1,
@@ -255,22 +374,8 @@ export default function VocabularyScreen() {
   // Güvenli kontroller
   if (!words || words.length === 0 || wordsFinished || currentIndex >= words.length) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.controls}>
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={[styles.toggleButton, showAll && styles.toggleButtonActive]}
-              onPress={() => {
-                setShowAll(!showAll);
-                setWordsFinished(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.toggleButtonText, showAll && styles.toggleButtonTextActive]}>
-                {showAll ? '📚 Sınırsız' : '📖 Günlük (10)'}
-              </Text>
-            </TouchableOpacity>
-          </View>
           {currentLevel && levelColors[currentLevel] && (
             <View style={styles.levelIndicator}>
               <Text style={styles.levelIndicatorText}>
@@ -282,31 +387,9 @@ export default function VocabularyScreen() {
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>
             {wordsFinished 
-              ? showAll 
-                ? '🎉 Tüm bilinmeyen kelimeleri tamamladın!'
-                : '🎉 Günlük kelimeleri tamamladın!\n\nTest kısmından tekrar edebilirsin veya sınırsız moda geçebilirsin.'
+              ? '🎉 Tüm kelimeleri tamamladın!'
               : 'Bu seviye için kelime bulunamadı.'}
           </Text>
-          {wordsFinished && !showAll && (
-            <TouchableOpacity
-              style={styles.switchModeButton}
-              onPress={() => {
-                setShowAll(true);
-                setWordsFinished(false);
-                loadWords();
-              }}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={[Colors.primary, Colors.primaryLight]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.switchModeButtonGradient}
-              >
-                <Text style={styles.switchModeButtonText}>📚 Sınırsız Moda Geç</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     );
@@ -314,31 +397,34 @@ export default function VocabularyScreen() {
   
   // Güvenli currentWord kontrolü
   if (!words || words.length === 0 || currentIndex >= words.length) {
-    return null;
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.centerContainer}>
+          <Text style={styles.emptyText}>Kelime yükleniyor...</Text>
+        </View>
+      </View>
+    );
   }
   
   const currentWord = words[currentIndex];
-  if (!currentWord || !currentWord.level) {
-    return null;
+  if (!currentWord) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.centerContainer}>
+          <Text style={styles.emptyText}>Kelime bulunamadı.</Text>
+        </View>
+      </View>
+    );
   }
   
-  const levelColor = levelColors[currentWord.level] || Colors.primary;
+  // Level kontrolü - eğer level yoksa varsayılan değer kullan
+  const wordLevel = currentWord.level || currentLevel || 'A1';
+  const levelColor = levelColors[wordLevel] || Colors.primary;
 
   return (
-    <View style={styles.container}>
-      {/* Kontroller - Sadece Sınırsız/Günlük */}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Kontroller */}
       <View style={styles.controls}>
-        <View style={styles.toggleRow}>
-          <TouchableOpacity
-            style={[styles.toggleButton, showAll && styles.toggleButtonActive]}
-            onPress={() => setShowAll(!showAll)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.toggleButtonText, showAll && styles.toggleButtonTextActive]}>
-              {showAll ? '📚 Sınırsız' : '📖 Günlük (10)'}
-            </Text>
-          </TouchableOpacity>
-        </View>
         {currentLevel && levelColors[currentLevel] && (
           <View style={styles.levelIndicator}>
             <Text style={styles.levelIndicatorText}>
@@ -398,53 +484,154 @@ export default function VocabularyScreen() {
           ]}
           {...(panResponder.current?.panHandlers || {})}
         >
-          <View style={styles.cardContent}>
-            {/* Normal Mode: Her ikisi de göster */}
-            <View style={styles.wordSection}>
-              <View style={styles.wordContainer}>
-                {currentWord.article && (
-                  <Text style={styles.article}>{currentWord.article}</Text>
-                )}
-                <Text 
-                  style={styles.word}
-                  numberOfLines={2}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.4}
-                >
-                  {currentWord.german || currentWord.word}
-                </Text>
-              </View>
-            </View>
-            
-            <View style={styles.meaningSection}>
-              <Text style={styles.meaning} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {currentWord.english || currentWord.meaning_tr}
-              </Text>
-            </View>
-            
-            {currentWord.example_sentence && (
-              <View style={styles.exampleContainer}>
-                <Text style={styles.exampleLabel}>💡 Örnek</Text>
-                <Text style={styles.exampleDE} numberOfLines={2}>{currentWord.example_sentence}</Text>
-                {currentWord.example_translation && (
-                  <Text style={styles.exampleEN} numberOfLines={1}>{currentWord.example_translation}</Text>
-                )}
-              </View>
-            )}
-            
-            <View style={styles.wordInfo}>
-              <View style={[styles.levelBadge, { backgroundColor: levelColor + '20' }]}>
-                <Text style={[styles.levelText, { color: levelColor }]}>
-                  {currentWord.level}
-                </Text>
-              </View>
-              {currentWord.known && (
-                <View style={[styles.knownBadge, { backgroundColor: Colors.success + '20' }]}>
-                  <Text style={styles.knownText}>✓ Öğrenildi</Text>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setShowMeaning(!showMeaning)}
+            style={styles.cardContent}
+          >
+            {/* Modern Card Design with Color Accents */}
+            <View style={styles.cardWrapper}>
+              {/* Color Accent Bar */}
+              <View style={[styles.colorAccent, { backgroundColor: levelColor }]} />
+              
+              <View style={styles.cardBody}>
+                {/* Header */}
+                <View style={styles.header}>
+                  <View style={[styles.levelBadge, { backgroundColor: levelColor + '20', borderColor: levelColor }]}>
+                    <Text style={[styles.levelText, { color: levelColor }]}>
+                      {wordLevel}
+                    </Text>
+                  </View>
+                  <View style={styles.headerRight}>
+                    {currentWord.knownCount && currentWord.knownCount >= 2 && (
+                      <View style={styles.masteredBadge}>
+                        <Text style={styles.masteredText}>⭐ Mastered</Text>
+                      </View>
+                    )}
+                    {/* Audio Button - Sağ Üst Köşe */}
+                    {currentWord.audio_path && (
+                      <TouchableOpacity
+                        style={styles.audioButtonTop}
+                        onPress={() => {
+                          console.log('🎵 VocabularyScreen: Ses butonu basıldı');
+                          console.log('🎵 currentWord:', {
+                            id: currentWord.id,
+                            german: currentWord.german,
+                            word: currentWord.word,
+                            audio_path: currentWord.audio_path
+                          });
+                          
+                          if (!currentWord.audio_path) {
+                            console.error('❌ VocabularyScreen: audio_path eksik!');
+                            return;
+                          }
+                          
+                          // ID için fallback: id varsa id, yoksa german veya word kullan
+                          const wordId = currentWord.id || currentWord.german || currentWord.word;
+                          if (!wordId) {
+                            console.error('❌ VocabularyScreen: ID/german/word eksik!');
+                            return;
+                          }
+                          
+                          playAudio(currentWord.audio_path, wordId);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <LinearGradient
+                          colors={(() => {
+                            const wordId = currentWord.id || currentWord.german || currentWord.word;
+                            return currentPlayingId === wordId && isPlaying 
+                              ? [Colors.success, Colors.successLight]
+                              : [Colors.success, Colors.successLight];
+                          })()}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.audioButtonGradientTop}
+                        >
+                          <Text style={styles.audioButtonTextTop}>
+                            {(() => {
+                              const wordId = currentWord.id || currentWord.german || currentWord.word;
+                              return currentPlayingId === wordId && isPlaying ? '⏸️' : '🎵';
+                            })()}
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              )}
+
+                {/* Main Word - Large & Bold */}
+                <View style={styles.wordSection}>
+                  {currentWord.article && (
+                    <Text style={styles.article}>{currentWord.article}</Text>
+                  )}
+                  <Text 
+                    style={styles.word}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.5}
+                  >
+                    {currentWord.german || currentWord.word}
+                  </Text>
+                </View>
+                
+                {/* Image Section */}
+                {currentWord.image_path && 
+                 currentWord.image_path !== '""' && 
+                 currentWord.image_path.trim() && 
+                 currentWord.image_path.trim().length > 0 && (
+                  <View style={styles.imageContainer}>
+                    <Image
+                      source={{ 
+                        uri: __DEV__ 
+                          ? `http://localhost:8081/assets/images/${encodeURIComponent(currentWord.image_path.trim())}`
+                          : `asset:/images/${currentWord.image_path.trim()}`
+                      }}
+                      style={styles.wordImage}
+                      resizeMode="contain"
+                      onError={(error) => {
+                        console.log('Image load error:', error.nativeEvent.error);
+                      }}
+                    />
+                  </View>
+                )}
+
+                {/* Meaning Section */}
+                {showMeaning ? (
+                  <View style={styles.meaningSection}>
+                    <View style={styles.meaningCard}>
+                      <Text style={styles.meaningLabel}>Anlam</Text>
+                      <Text style={styles.meaning} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.7}>
+                        {currentWord.english || currentWord.meaning_tr}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.meaningSection}>
+                    <View style={styles.hintCard}>
+                      <Text style={styles.hintIcon}>👆</Text>
+                      <Text style={styles.hintText}>Dokunarak anlamı gör</Text>
+                    </View>
+                  </View>
+                )}
+                
+                {/* Example Sentence */}
+                {currentWord.example_sentence && (
+                  <View style={styles.exampleContainer}>
+                    <Text style={styles.exampleLabel}>💡 Örnek</Text>
+                    <Text style={styles.exampleDE} numberOfLines={2}>
+                      {currentWord.example_sentence}
+                    </Text>
+                    {currentWord.example_translation && showMeaning && (
+                      <Text style={styles.exampleEN} numberOfLines={1}>
+                        {currentWord.example_translation}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
         </Animated.View>
       </View>
 
@@ -455,7 +642,9 @@ export default function VocabularyScreen() {
             style={styles.navButton}
             onPress={() => {
               if (currentIndex > 0) {
-                setCurrentIndex(currentIndex - 1);
+                const newIndex = currentIndex - 1;
+                setCurrentIndex(newIndex);
+                StorageService.saveVocabularyLastIndex(newIndex);
                 position.setValue({ x: 0, y: 0 });
               }
             }}
@@ -596,65 +785,136 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardContent: {
-    padding: Spacing.xl,
+    width: '100%',
+    height: '100%',
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+  },
+  cardWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    minHeight: 450,
+  },
+  colorAccent: {
+    width: 6,
+    borderRadius: BorderRadius.xl,
+  },
+  cardBody: {
+    flex: 1,
+    padding: Spacing.xxl,
+    justifyContent: 'space-between',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 400,
+    marginBottom: Spacing.xl,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   wordSection: {
-    marginBottom: Spacing.lg,
-    alignItems: 'center',
-    width: '100%',
-  },
-  wordContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    flex: 1,
     justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: Spacing.xs,
-    width: '100%',
-    paddingHorizontal: Spacing.md,
+    alignItems: 'center',
+    marginVertical: Spacing.lg,
   },
   word: {
-    fontSize: 40,
-    fontWeight: 'bold',
+    fontSize: 52,
+    fontWeight: '800',
     color: Colors.textPrimary,
     textAlign: 'center',
-    letterSpacing: -0.5,
-    flex: 1,
-    minWidth: 0,
+    letterSpacing: -1.2,
+    lineHeight: 60,
   },
   article: {
-    fontSize: 18,
-    color: Colors.textTertiary,
+    fontSize: 24,
+    color: Colors.textSecondary,
     fontStyle: 'italic',
     fontWeight: '600',
-    marginRight: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   meaningSection: {
-    marginBottom: Spacing.lg,
-    alignItems: 'center',
+    marginVertical: Spacing.lg,
     width: '100%',
-    paddingHorizontal: Spacing.md,
+  },
+  meaningCard: {
+    backgroundColor: Colors.primary + '15',
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: Colors.primary + '30',
+  },
+  meaningLabel: {
+    ...Typography.caption,
+    color: Colors.primary,
+    fontWeight: '700',
+    marginBottom: Spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   meaning: {
-    fontSize: 24,
+    fontSize: 26,
     color: Colors.primary,
     textAlign: 'center',
     fontWeight: '700',
-    letterSpacing: -0.3,
-    lineHeight: 32,
+    lineHeight: 34,
+  },
+  hintCard: {
+    backgroundColor: Colors.backgroundTertiary,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+  },
+  hintIcon: {
+    fontSize: 36,
+    marginBottom: Spacing.sm,
+  },
+  hintText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  imageContainer: {
+    marginVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
     width: '100%',
+  },
+  wordImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.backgroundTertiary,
+  },
+  audioButtonTop: {
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+    ...Shadows.colored,
+  },
+  audioButtonGradientTop: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  audioButtonTextTop: {
+    fontSize: 24,
   },
   exampleContainer: {
     marginTop: Spacing.md,
-    marginBottom: Spacing.md,
     padding: Spacing.md,
     backgroundColor: Colors.backgroundTertiary,
     borderRadius: BorderRadius.md,
     borderLeftWidth: 3,
     borderLeftColor: Colors.primary,
-    width: '100%',
   },
   exampleLabel: {
     ...Typography.caption,
@@ -663,32 +923,41 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   exampleDE: {
-    ...Typography.bodySmall,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xs,
+    ...Typography.body,
+    color: Colors.textPrimary,
     fontStyle: 'italic',
-    lineHeight: 20,
+    lineHeight: 24,
+    marginBottom: Spacing.xs,
   },
   exampleEN: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
-    lineHeight: 18,
-  },
-  wordInfo: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    lineHeight: 20,
   },
   levelBadge: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
+    borderWidth: 1.5,
   },
   levelText: {
     ...Typography.caption,
     fontWeight: '700',
+    fontSize: 11,
+  },
+  masteredBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.success + '20',
+    borderWidth: 1,
+    borderColor: Colors.success,
+  },
+  masteredText: {
+    ...Typography.caption,
+    color: Colors.success,
+    fontWeight: '700',
+    fontSize: 11,
   },
   knownBadge: {
     paddingHorizontal: Spacing.md,

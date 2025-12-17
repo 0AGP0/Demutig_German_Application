@@ -1,28 +1,4 @@
 {
-  "expo": {
-    "name": "demütig",
-    "slug": "demutig",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#4A90E2"
-    },
-    "assetBundlePatterns": [
-      "**/*",
-      "assets/audio/**/*"
-    ],
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.germanlearning.app"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#4A90E2"
-      },
-      "package": "com.germanlearning.app"
-    }
-  }
+  "name": "demutig",
+  "displayName": "demütig"
 }
-
