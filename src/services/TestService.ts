@@ -265,19 +265,19 @@ export class TestService {
     
     switch (testMode) {
       case 'unknown':
-        // Sadece kullanıcının "okumadım" olarak işaretlediği cümleler
+        // Sadece kullanıcının "Bilmiyorum" olarak işaretlediği cümleler
         // practiced_date olan VE practiced === false olanlar
         filteredSentences = mergedSentences.filter(s => {
           // Hiç değerlendirilmemiş cümleleri dahil etme
           if (!s.practiced_date) return false;
-          // Sadece açıkça practiced === false olanları getir (okumadım/bilmediğim)
+          // Sadece açıkça practiced === false olanları getir (Bilmiyorum)
           // undefined veya null değerleri dahil etme
           return s.practiced === false;
         });
         break;
       case 'known':
-        // Sadece okuduğu cümleler (pekiştirme)
-        // practiced === true olanlar (okudum/bildim)
+        // Sadece bildiği cümleler (pekiştirme)
+        // practiced === true olanlar (Biliyorum)
         // AMA tekrar zamanı gelmemiş olanlar (next_review_date > now veya next_review_date yok)
         // Yani henüz tekrar etmesi gerekmeyen, sadece pekiştirme için test edilebilen cümleler
         const nowForKnown = new Date();

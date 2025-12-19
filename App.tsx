@@ -10,6 +10,8 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import VocabularyScreen from './src/screens/VocabularyScreen';
 import SentencesScreen from './src/screens/SentencesScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
+import LessonListScreen from './src/screens/LessonListScreen';
+import LessonScreen from './src/screens/LessonScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -71,6 +73,16 @@ function MainTabs() {
           ),
         }}
       />
+      <Tab.Screen
+        name="Lessons"
+        component={LessonListScreen}
+        options={{ 
+          tabBarLabel: 'Dersler',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="school" size={size} color={color} />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -120,6 +132,21 @@ export default function App() {
             options={{ 
               title: 'Takvim',
               headerShown: true,
+            }}
+          />
+          <Stack.Screen
+            name="Lessons"
+            component={LessonListScreen}
+            options={{ 
+              title: 'Dersler',
+              headerShown: true,
+            }}
+          />
+          <Stack.Screen
+            name="Lesson"
+            component={LessonScreen}
+            options={{ 
+              headerShown: false,
             }}
           />
         </Stack.Navigator>

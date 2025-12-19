@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Vocabulary } from '../models/Vocabulary';
 import { Sentence } from '../models/Sentence';
 import { UserProgress } from '../models/Progress';
+import { LessonProgress } from '../models/Lesson';
 
 const STORAGE_KEYS = {
   VOCABULARY: '@german_app:vocabulary',
@@ -13,6 +14,7 @@ const STORAGE_KEYS = {
   TEST_FINISHED: '@german_app:test_finished',
   VOCABULARY_LAST_INDEX: '@german_app:vocabulary_last_index',
   SENTENCES_LAST_INDEX: '@german_app:sentences_last_index',
+  LESSON_PROGRESS: '@german_app:lesson_progress',
 };
 
 // Cache mekanizması
@@ -248,15 +250,18 @@ export class StorageService {
 
   // Kelimeleri getir
   static async getVocabulary(useCache: boolean = true): Promise<Vocabulary[]> {
-    // Cache kontrolü
+    // Cache kontrolü - eğer useCache false ise her zaman bypass et
     if (useCache && vocabularyCache && (Date.now() - cacheTimestamp < CACHE_DURATION)) {
       return vocabularyCache;
     }
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.VOCABULARY);
       const result = data ? JSON.parse(data) : [];
-      vocabularyCache = result;
-      cacheTimestamp = Date.now();
+      // Cache'i güncelle - sadece useCache true ise
+      if (useCache) {
+        vocabularyCache = result;
+        cacheTimestamp = Date.now();
+      }
       return result;
     } catch (error) {
       console.error('Error getting vocabulary:', error);
@@ -267,10 +272,23 @@ export class StorageService {
   // Cümle pratiğini kaydet (practiced: true/false)
   static async markSentencePracticed(sentenceId: number, practiced: boolean = true, sentenceData?: any): Promise<void> {
     try {
-      const sentences = await this.getSentences();
-      const index = sentences.findIndex(s => s.id === sentenceId);
+      // Cache'i bypass et - her zaman güncel verileri al
+      const sentences = await this.getSentences(false);
+      // ID eşleşmesi - hem number hem string karşılaştırması yap
+      const index = sentences.findIndex(s => {
+        const sId = Number(s.id); // Her zaman number'a çevir
+        const targetId = Number(sentenceId); // Her zaman number'a çevir
+        return sId === targetId;
+      });
       const now = new Date().toISOString();
       const today = new Date().toDateString();
+      
+      console.log('💾 markSentencePracticed:', sentenceId, 'type:', typeof sentenceId, 'practiced:', practiced, 'found index:', index);
+      console.log('💾 Total sentences in storage:', sentences.length);
+      if (sentences.length > 0 && index === -1) {
+        // Debug: İlk 5 sentence ID'sini göster
+        console.log('💾 First 5 sentence IDs:', sentences.slice(0, 5).map(s => ({ id: s.id, type: typeof s.id })));
+      }
       
       if (index !== -1) {
         // Mevcut cümleyi güncelle
@@ -282,16 +300,20 @@ export class StorageService {
         
         // Mastered sistemi: practicedCount takibi
         if (practiced) {
-          // Sağa swipe (Okudum/Biliyorum) → practicedCount +1
-          sentences[index].practicedCount = (sentences[index].practicedCount || 0) + 1;
-          if (sentences[index].practicedCount >= 2) {
+          // Sağa swipe (Biliyorum) → practicedCount +1
+          const oldCount = sentences[index].practicedCount || 0;
+          sentences[index].practicedCount = oldCount + 1;
+          const newCount = sentences[index].practicedCount;
+          console.log('📈 Sentence practicedCount:', sentenceId, oldCount, '->', newCount);
+          if (newCount >= 2) {
             sentences[index].status = 'mastered';
             sentences[index].practiced = true;
+            console.log('⭐ Sentence mastered:', sentenceId);
           } else {
             sentences[index].status = 'learning';
           }
         } else {
-          // Sola swipe (Okumadım/Bilmediğim) → practicedCount = 0
+          // Sola swipe (Bilmiyorum) → practicedCount = 0
           sentences[index].practicedCount = 0;
           if (sentences[index].review_count > 1) {
             sentences[index].status = 'learning'; // Daha önce görülmüş
@@ -305,7 +327,7 @@ export class StorageService {
         const currentPracticedCount = sentences[index].practicedCount || 0;
         
         if (practiced) {
-          // Sağa swipe (Okudum/Biliyorum)
+          // Sağa swipe (Biliyorum)
           if (currentPracticedCount >= 2) {
             // Mastered: 7 gün sonra tekrar et (pekiştirme)
             const nextReview = new Date();
@@ -313,14 +335,14 @@ export class StorageService {
             sentences[index].next_review_date = nextReview.toISOString();
             sentences[index].status = 'review'; // Tekrar zamanı gelince review olacak
           } else {
-            // Learning: 1 gün sonra tekrar et (her "Okudum" 1 gün sonra)
+            // Learning: 1 gün sonra tekrar et (her "Biliyorum" 1 gün sonra)
             const nextReview = new Date();
             nextReview.setDate(nextReview.getDate() + 1);
             sentences[index].next_review_date = nextReview.toISOString();
             sentences[index].status = 'review'; // Tekrar zamanı gelince review olacak
           }
         } else {
-          // Sola swipe (Okumadım/Bilmediğim): 1 gün sonra tekrar et
+          // Sola swipe (Bilmiyorum): 1 gün sonra tekrar et
           const nextReview = new Date();
           nextReview.setDate(nextReview.getDate() + 1);
           sentences[index].next_review_date = nextReview.toISOString();
@@ -337,20 +359,25 @@ export class StorageService {
         }
         
         await AsyncStorage.setItem(STORAGE_KEYS.SENTENCES, JSON.stringify(sentences));
-        this.clearCache(); // Cache'i temizle
+        // Cache'i güncelle - yeni veriyi cache'e yaz (hemen güncelle ki bir sonraki çağrıda güncel veri dönsün)
+        sentencesCache = [...sentences]; // Yeni array oluştur
+        cacheTimestamp = Date.now();
+        console.log('💾 Sentence saved:', sentenceId, 'practicedCount:', sentences[index].practicedCount, 'status:', sentences[index].status);
+        console.log('💾 Cache updated, total sentences in cache:', sentencesCache.length);
       } else {
         // Yeni cümle ekle
+        console.log('➕ New sentence, adding to storage:', sentenceId);
         // sentenceData içindeki practiced değerini override etmemek için önce spread, sonra practiced set et
         const reviewCount = 1;
         const nextReview = new Date();
         
         // Spaced repetition: Bir sonraki tekrar tarihini hesapla
         if (practiced) {
-          // Okudum/Bildim: Daha uzun süre sonra tekrar et
+          // Biliyorum: Daha uzun süre sonra tekrar et
           const daysToAdd = Math.min(30, Math.pow(2, reviewCount)); // 2 gün
           nextReview.setDate(nextReview.getDate() + daysToAdd);
         } else {
-          // Okumadım/Bilmediğim: Daha kısa süre sonra tekrar et
+          // Bilmiyorum: Daha kısa süre sonra tekrar et
           nextReview.setDate(nextReview.getDate() + 1); // 1 gün sonra
         }
         
@@ -367,7 +394,11 @@ export class StorageService {
         };
         sentences.push(newSentence);
         await AsyncStorage.setItem(STORAGE_KEYS.SENTENCES, JSON.stringify(sentences));
-        this.clearCache(); // Cache'i temizle
+        // Cache'i güncelle - yeni veriyi cache'e yaz (hemen güncelle ki bir sonraki çağrıda güncel veri dönsün)
+        sentencesCache = [...sentences]; // Yeni array oluştur
+        cacheTimestamp = Date.now();
+        console.log('💾 New sentence saved:', sentenceId, 'practicedCount:', newSentence.practicedCount, 'status:', newSentence.status);
+        console.log('💾 Cache updated, total sentences in cache:', sentencesCache.length);
       }
     } catch (error) {
       console.error('Error marking sentence practiced:', error);
@@ -376,15 +407,18 @@ export class StorageService {
 
   // Cümleleri getir
   static async getSentences(useCache: boolean = true): Promise<Sentence[]> {
-    // Cache kontrolü
+    // Cache kontrolü - eğer useCache false ise her zaman bypass et
     if (useCache && sentencesCache && (Date.now() - cacheTimestamp < CACHE_DURATION)) {
       return sentencesCache;
     }
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SENTENCES);
       const result = data ? JSON.parse(data) : [];
-      sentencesCache = result;
-      cacheTimestamp = Date.now();
+      // Cache'i güncelle - sadece useCache true ise
+      if (useCache) {
+        sentencesCache = result;
+        cacheTimestamp = Date.now();
+      }
       return result;
     } catch (error) {
       console.error('Error getting sentences:', error);
@@ -405,7 +439,7 @@ export class StorageService {
         const nextReview = new Date();
         
         // Spaced repetition: Bir sonraki tekrar tarihini hesapla
-        const practiced = testMode === 'unknown' && isCorrect; // Bilmiyorum modunda doğru cevap → practiced: true
+        const practiced = testMode === 'unknown' && isCorrect; // Bilmiyorum modunda doğru cevap → practiced: true (Biliyorum)
         if (isCorrect) {
           const daysToAdd = Math.min(30, Math.pow(2, reviewCount)); // 2 gün
           nextReview.setDate(nextReview.getDate() + daysToAdd);
@@ -669,34 +703,120 @@ export class StorageService {
   // Tüm verileri sıfırla (geliştirme için)
   static async clearAllData(): Promise<void> {
     try {
-      // AsyncStorage'dan tüm anahtarları temizle
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.VOCABULARY,
-        STORAGE_KEYS.SENTENCES,
-        STORAGE_KEYS.PROGRESS,
-        STORAGE_KEYS.LAST_STUDY_DATE,
-        STORAGE_KEYS.STREAK_DAYS,
-        STORAGE_KEYS.TEST_PROGRESS,
-        STORAGE_KEYS.TEST_FINISHED,
-        STORAGE_KEYS.VOCABULARY_LAST_INDEX,
-        STORAGE_KEYS.SENTENCES_LAST_INDEX,
-      ]);
-      
-      // Test progress ve finished için tüm kombinasyonları temizle
+      // Önce tüm key'leri al
       const allKeys = await AsyncStorage.getAllKeys();
-      const testProgressKeys = allKeys.filter(key => key.startsWith(STORAGE_KEYS.TEST_PROGRESS));
-      const testFinishedKeys = allKeys.filter(key => key.startsWith(STORAGE_KEYS.TEST_FINISHED));
-      if (testProgressKeys.length > 0 || testFinishedKeys.length > 0) {
-        await AsyncStorage.multiRemove([...testProgressKeys, ...testFinishedKeys]);
+      console.log('🗑️ Temizlenecek key sayısı:', allKeys.length);
+      console.log('🗑️ Key\'ler:', allKeys);
+      
+      // Uygulamaya ait tüm key'leri bul (@german_app: ile başlayan)
+      const appKeys = allKeys.filter(key => key.startsWith('@german_app:'));
+      
+      if (appKeys.length > 0) {
+        await AsyncStorage.multiRemove(appKeys);
+        console.log('✅ Temizlenen key sayısı:', appKeys.length);
       }
       
       // Cache'i de temizle
       this.clearCache();
       
+      // Doğrulama: Kalan key'leri kontrol et
+      const remainingKeys = await AsyncStorage.getAllKeys();
+      const remainingAppKeys = remainingKeys.filter(key => key.startsWith('@german_app:'));
+      if (remainingAppKeys.length > 0) {
+        console.log('⚠️ Kalan key\'ler:', remainingAppKeys);
+        // Kalan key'leri de temizle
+        await AsyncStorage.multiRemove(remainingAppKeys);
+      }
+      
       console.log('✅ Tüm veriler temizlendi');
     } catch (error) {
       console.error('❌ Veri temizleme hatası:', error);
     }
+  }
+
+  // Lesson Progress Fonksiyonları
+  static async getLessonProgress(useCache: boolean = false): Promise<Record<string, LessonProgress>> {
+    // useCache false ise her zaman AsyncStorage'dan oku
+    try {
+      // Cache kullanma - her zaman güncel verileri al
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.LESSON_PROGRESS);
+      return data ? JSON.parse(data) : {};
+    } catch (error) {
+      console.error('Error getting lesson progress:', error);
+      return {};
+    }
+  }
+
+  static async saveLessonProgress(progress: Record<string, LessonProgress>): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.LESSON_PROGRESS, JSON.stringify(progress));
+      // Yazma işleminin tamamlandığından emin ol
+      console.log('💾 Lesson progress saved to AsyncStorage');
+    } catch (error) {
+      console.error('Error saving lesson progress:', error);
+    }
+  }
+
+  static async updateLessonProgress(lessonId: string, updates: Partial<LessonProgress>): Promise<void> {
+    try {
+      // Cache bypass - her zaman güncel verileri al
+      const allProgress = await this.getLessonProgress(false);
+      const current = allProgress[lessonId] || {
+        lesson_id: lessonId,
+        completed: false,
+        grammar_read: false,
+        vocab_mastered_count: 0,
+        sentence_mastered_count: 0,
+      };
+      
+      const updated = {
+        ...current,
+        ...updates,
+        lesson_id: lessonId,
+      };
+      
+      allProgress[lessonId] = updated;
+      
+      await this.saveLessonProgress(allProgress);
+      console.log('💾 Lesson progress updated:', lessonId, 'completed:', updated.completed);
+    } catch (error) {
+      console.error('Error updating lesson progress:', error);
+    }
+  }
+
+  static async markLessonGrammarRead(lessonId: string): Promise<void> {
+    await this.updateLessonProgress(lessonId, { grammar_read: true });
+  }
+
+  static async markLessonCompleted(lessonId: string): Promise<void> {
+    const now = new Date().toISOString();
+    const allProgress = await this.getLessonProgress(false); // Cache bypass
+    const current = allProgress[lessonId];
+    
+    console.log('✅ markLessonCompleted:', lessonId, 'current progress:', current);
+    
+    await this.updateLessonProgress(lessonId, {
+      completed: true,
+      completed_at: now,
+      started_at: current?.started_at || now,
+    });
+    
+    // AsyncStorage'a yazma işleminin tamamlandığından emin ol - doğrulama
+    const verifyProgress = await this.getLessonProgress(false);
+    const verified = verifyProgress[lessonId];
+    console.log('✅ Verification - Lesson completed:', lessonId, 'verified completed:', verified?.completed);
+    
+    // Cache'i temizle ki LessonListScreen güncel verileri görsün
+    this.clearCache();
+    console.log('✅ Lesson marked as completed:', lessonId);
+  }
+
+  static async getLessonProgressById(lessonId: string): Promise<LessonProgress | null> {
+    // Cache bypass - her zaman güncel verileri al
+    const allProgress = await this.getLessonProgress(false);
+    const progress = allProgress[lessonId] || null;
+    console.log('📊 getLessonProgressById:', lessonId, 'completed:', progress?.completed);
+    return progress;
   }
 }
 

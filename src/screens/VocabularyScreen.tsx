@@ -362,15 +362,6 @@ export default function VocabularyScreen() {
     B2: Colors.levelB2,
   };
 
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Yükleniyor...</Text>
-      </View>
-    );
-  }
-
   // Güvenli kontroller
   if (!words || words.length === 0 || wordsFinished || currentIndex >= words.length) {
     return (
@@ -623,7 +614,7 @@ export default function VocabularyScreen() {
                       {currentWord.example_sentence}
                     </Text>
                     {currentWord.example_translation && showMeaning && (
-                      <Text style={styles.exampleEN} numberOfLines={1}>
+                      <Text style={styles.exampleEN}>
                         {currentWord.example_translation}
                       </Text>
                     )}

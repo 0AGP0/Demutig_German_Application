@@ -1,0 +1,1728 @@
+[
+  {
+    "lesson_id": "A1_L01",
+    "level": "A1",
+    "title": "İsim ve tanışma (heißen)",
+    "topic": "Personal_Information",
+    "lesson_keywords": [
+      "heißen",
+      "name",
+      "vorname",
+      "nachname",
+      "familienname",
+      "kommen",
+      "aus",
+      "herkommen"
+    ],
+    "grammar": [
+      "Bu derste adını söyleme ve birinin adını sorma için temel yapıları görürsün.",
+      "'heißen' fiili 'adının ... olması' anlamındadır ve tanışmada çok kullanılır.",
+      "Nereli olduğunu söylemek için 'kommen aus' kalıbı kullanılır.",
+      "Örnek: Ich heiße ... / Ich komme aus ..."
+    ],
+    "vocab_ids": [
+      9,
+      10,
+      11,
+      17,
+      18,
+      2,
+      3,
+      7,
+      8,
+      22,
+      25,
+      31,
+      33
+    ],
+    "sentence_ids": [
+      3868,
+      6532,
+      6464,
+      6298,
+      6179
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L02",
+    "level": "A1",
+    "title": "Kişisel bilgiler (adres/telefon)",
+    "topic": "Personal_Information",
+    "lesson_keywords": [
+      "adresse",
+      "telefon",
+      "nummer",
+      "geburtsort",
+      "wohnort",
+      "wohnen",
+      "straße",
+      "hausnummer"
+    ],
+    "grammar": [
+      "Bu derste adres, telefon gibi temel kişisel bilgileri söylemeyi hedeflersin.",
+      "Kısa bilgi cümleleri kurmaya odaklan: Ich wohne ... / Meine Nummer ist ..."
+    ],
+    "vocab_ids": [
+      23,
+      342,
+      19,
+      20,
+      21,
+      24,
+      53,
+      249,
+      251,
+      258,
+      423,
+      1,
+      4
+    ],
+    "sentence_ids": [
+      4910,
+      3121,
+      3120,
+      6744,
+      6612
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L03",
+    "level": "A1",
+    "title": "Medeni hâl",
+    "topic": "Personal_Information",
+    "lesson_keywords": [
+      "ledig",
+      "verheiratet",
+      "geschieden",
+      "getrennt",
+      "verwitwet"
+    ],
+    "grammar": [
+      "Bu derste medeni hâl ile ilgili kelimeleri ve basit cümleleri görürsün.",
+      "Sık kullanım: Ich bin ledig/verheiratet."
+    ],
+    "vocab_ids": [
+      14,
+      12,
+      13,
+      15,
+      16,
+      294,
+      297,
+      299,
+      5,
+      6,
+      26,
+      27,
+      28
+    ],
+    "sentence_ids": [
+      6466,
+      6341,
+      6182,
+      5964,
+      5642
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L04",
+    "level": "A1",
+    "title": "Aile üyeleri 1",
+    "topic": "Family",
+    "lesson_keywords": [
+      "mutter",
+      "vater",
+      "eltern",
+      "bruder",
+      "schwester",
+      "familie",
+      "kind"
+    ],
+    "grammar": [
+      "Bu derste aile üyeleri kelimeleriyle tanışırsın.",
+      "İyelik için 'mein/meine' sık kullanılır: Das ist meine Mutter."
+    ],
+    "vocab_ids": [
+      245,
+      268,
+      271,
+      319,
+      225,
+      226,
+      227,
+      228,
+      231,
+      232,
+      237,
+      238,
+      239
+    ],
+    "sentence_ids": [
+      2191,
+      4949,
+      4844,
+      3482,
+      2338
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L05",
+    "level": "A1",
+    "title": "Aile üyeleri 2",
+    "topic": "Family",
+    "lesson_keywords": [
+      "sohn",
+      "tochter",
+      "onkel",
+      "tante",
+      "oma",
+      "opa",
+      "großmutter",
+      "großvater"
+    ],
+    "grammar": [
+      "Aile kelimelerini genişletip daha fazla cümle kurarsın.",
+      "Basit tanıtma cümleleri: Das ist mein ..."
+    ],
+    "vocab_ids": [
+      229,
+      230,
+      233,
+      234,
+      114,
+      118,
+      250,
+      252,
+      253,
+      263,
+      264,
+      267,
+      276
+    ],
+    "sentence_ids": [
+      5903,
+      5902,
+      5492,
+      4148,
+      4074
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L06",
+    "level": "A1",
+    "title": "Sosyal çevre",
+    "topic": "Friendship_and_Other_Social_Contacts",
+    "lesson_keywords": [
+      "freund",
+      "freundin",
+      "kollege",
+      "kollegin",
+      "nachbar",
+      "bekannt"
+    ],
+    "grammar": [
+      "Bu derste arkadaşlar ve sosyal çevre ile ilgili temel kelimeler var.",
+      "Tanıştırma: Das ist mein Freund. / Sie ist meine Kollegin."
+    ],
+    "vocab_ids": [
+      316,
+      195,
+      291,
+      309,
+      317,
+      318,
+      323,
+      326,
+      329,
+      330,
+      37,
+      46,
+      63
+    ],
+    "sentence_ids": [
+      6302,
+      5681,
+      5680,
+      3082,
+      2449
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L07",
+    "level": "A1",
+    "title": "Dış görünüş",
+    "topic": "Appearance",
+    "lesson_keywords": [
+      "groß",
+      "klein",
+      "jung",
+      "alt",
+      "haar",
+      "auge",
+      "brille",
+      "bart"
+    ],
+    "grammar": [
+      "Bu derste insanları basit sıfatlarla tarif edersin.",
+      "Sık yapı: Er/Sie ist + sıfat."
+    ],
+    "vocab_ids": [
+      99,
+      177,
+      97,
+      100,
+      106,
+      44,
+      65,
+      70,
+      76,
+      88,
+      112,
+      117,
+      119
+    ],
+    "sentence_ids": [
+      5473,
+      4048,
+      2843,
+      2533,
+      1239
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L08",
+    "level": "A1",
+    "title": "Karakter",
+    "topic": "Character_Traits",
+    "lesson_keywords": [
+      "nett",
+      "freundlich",
+      "ruhig",
+      "laut",
+      "ehrlich",
+      "hilfsbereit"
+    ],
+    "grammar": [
+      "Bu derste kişilik/karakter anlatan kelimeler var.",
+      "Sık yapı: Er/Sie ist + sıfat."
+    ],
+    "vocab_ids": [
+      36,
+      47,
+      50,
+      38,
+      67,
+      69,
+      320,
+      324,
+      409,
+      443,
+      448,
+      461,
+      34
+    ],
+    "sentence_ids": [
+      6387,
+      6343,
+      4558,
+      4340,
+      4338
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L09",
+    "level": "A1",
+    "title": "Duygular ve durum",
+    "topic": "Feelings",
+    "lesson_keywords": [
+      "glücklich",
+      "traurig",
+      "müde",
+      "hungrig",
+      "durstig",
+      "krank",
+      "angst",
+      "nervös"
+    ],
+    "grammar": [
+      "Bu derste duygu ve durumları anlatırsın.",
+      "Sık yapı: Ich bin müde. / Ich habe Angst."
+    ],
+    "vocab_ids": [
+      440,
+      453,
+      457,
+      441,
+      52,
+      68,
+      328,
+      337,
+      372,
+      384,
+      481,
+      500,
+      432
+    ],
+    "sentence_ids": [
+      3190,
+      6603,
+      6601,
+      6474,
+      6395
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L10",
+    "level": "A1",
+    "title": "Kıyafetler",
+    "topic": "Clothes_and_Shoes",
+    "lesson_keywords": [
+      "hose",
+      "hemd",
+      "jacke",
+      "kleid",
+      "schuh",
+      "anziehen",
+      "ausziehen",
+      "passen",
+      "größe",
+      "farbe"
+    ],
+    "grammar": [
+      "Bu derste kıyafet isimleri ve temel fiilleri görürsün.",
+      "Sık yapı: Ich trage ... / Ich ziehe ... an."
+    ],
+    "vocab_ids": [
+      132,
+      135,
+      141,
+      142,
+      147,
+      173,
+      179,
+      134,
+      138,
+      140,
+      144,
+      146,
+      149
+    ],
+    "sentence_ids": [
+      1740,
+      5948,
+      5699,
+      5696,
+      4922
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L11",
+    "level": "A1",
+    "title": "Aksesuarlar",
+    "topic": "Accessories",
+    "lesson_keywords": [
+      "uhr",
+      "tasche",
+      "gürtel",
+      "ring",
+      "schmuck",
+      "mütze"
+    ],
+    "grammar": [
+      "Bu derste aksesuar kelimeleri var.",
+      "Sahiplik: Ich habe eine Uhr."
+    ],
+    "vocab_ids": [
+      201,
+      202,
+      204,
+      207,
+      208,
+      211,
+      48,
+      190,
+      262,
+      289,
+      296,
+      300,
+      336
+    ],
+    "sentence_ids": [
+      6766,
+      6096,
+      6095,
+      6094,
+      6075
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L12",
+    "level": "A1",
+    "title": "Hayat evreleri",
+    "topic": "Life_Cycle",
+    "lesson_keywords": [
+      "schule",
+      "studium",
+      "arbeit",
+      "rentner",
+      "geburt",
+      "sterben"
+    ],
+    "grammar": [
+      "Bu derste hayat evreleriyle ilgili kelimeler var.",
+      "Basit anlatım hedeflenir."
+    ],
+    "vocab_ids": [
+      360,
+      374,
+      35,
+      442,
+      482,
+      356,
+      357,
+      358,
+      359,
+      361,
+      362,
+      363,
+      364
+    ],
+    "sentence_ids": [
+      2551,
+      6442,
+      6346,
+      5865,
+      5765
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L13",
+    "level": "A1",
+    "title": "Düşünce ve görüş",
+    "topic": "Thoughts",
+    "lesson_keywords": [
+      "denken",
+      "glauben",
+      "meinen",
+      "idee",
+      "wichtig",
+      "richtig"
+    ],
+    "grammar": [
+      "Bu derste düşünce belirtmeye yarayan kelimeler var.",
+      "Basit görüş: Ich denke, ..."
+    ],
+    "vocab_ids": [
+      401,
+      402,
+      45,
+      85,
+      87,
+      261,
+      424,
+      473,
+      400,
+      403,
+      404,
+      405,
+      406
+    ],
+    "sentence_ids": [
+      6148,
+      6147,
+      5550,
+      5549,
+      5547
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L14",
+    "level": "A1",
+    "title": "Tekrar 1",
+    "topic": "Personal_Information",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders bir pekiştirme dersidir."
+    ],
+    "vocab_ids": [
+      29,
+      30,
+      32,
+      39,
+      41,
+      43,
+      49,
+      51,
+      55,
+      56,
+      57,
+      58,
+      59
+    ],
+    "sentence_ids": [
+      5177,
+      5175,
+      4586,
+      4393,
+      4287
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L15",
+    "level": "A1",
+    "title": "Pekiştirme 14",
+    "topic": "Appearance",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      98,
+      101,
+      102,
+      103,
+      104
+    ],
+    "sentence_ids": [
+      6613,
+      5884,
+      5454,
+      5206,
+      5139
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L16",
+    "level": "A1",
+    "title": "Pekiştirme 15",
+    "topic": "Character_Traits",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      40,
+      42,
+      54,
+      60,
+      61,
+      62,
+      64,
+      66,
+      71,
+      72,
+      73,
+      74,
+      75
+    ],
+    "sentence_ids": [
+      6516,
+      6515,
+      6513,
+      6506,
+      4060
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L17",
+    "level": "A1",
+    "title": "Pekiştirme 16",
+    "topic": "Feelings",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      433,
+      434,
+      435,
+      436,
+      437,
+      439,
+      444,
+      445,
+      446,
+      447,
+      449,
+      450,
+      451
+    ],
+    "sentence_ids": [
+      6443,
+      5900,
+      5899,
+      5223,
+      5218
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L18",
+    "level": "A1",
+    "title": "Pekiştirme 17",
+    "topic": "Thoughts",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      407,
+      408,
+      410,
+      411,
+      412,
+      413,
+      414,
+      415,
+      416,
+      77,
+      78,
+      79,
+      80
+    ],
+    "sentence_ids": [
+      5411,
+      5409,
+      3225,
+      3223,
+      3222
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L19",
+    "level": "A1",
+    "title": "Pekiştirme 18",
+    "topic": "Life_Cycle",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      365,
+      366,
+      367,
+      368,
+      369,
+      370,
+      371,
+      373,
+      375,
+      376,
+      377,
+      378,
+      379
+    ],
+    "sentence_ids": [
+      6006,
+      5997,
+      5922,
+      5799,
+      5359
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L20",
+    "level": "A1",
+    "title": "Pekiştirme 19",
+    "topic": "Partnership_and_Marriage",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      273,
+      274,
+      275,
+      277,
+      278,
+      279,
+      280,
+      281,
+      282,
+      283,
+      284,
+      285,
+      286
+    ],
+    "sentence_ids": [
+      5498,
+      5497,
+      4740,
+      4739,
+      4671
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L21",
+    "level": "A1",
+    "title": "Pekiştirme 20",
+    "topic": "Clothes_and_Shoes",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      133,
+      136,
+      137,
+      139,
+      143,
+      145,
+      148,
+      150,
+      151,
+      152,
+      153,
+      154
+    ],
+    "sentence_ids": [
+      3041,
+      5857,
+      5491,
+      5365,
+      5362
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L22",
+    "level": "A1",
+    "title": "Pekiştirme 21",
+    "topic": "Accessories",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      200,
+      203,
+      205,
+      206,
+      209,
+      210,
+      212,
+      213,
+      81,
+      82,
+      83,
+      84
+    ],
+    "sentence_ids": [
+      4174,
+      4123,
+      4121,
+      4120,
+      4117
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L23",
+    "level": "A1",
+    "title": "Pekiştirme 22",
+    "topic": "Personal_Information",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      86,
+      105,
+      107,
+      108,
+      109,
+      110,
+      111,
+      113,
+      115,
+      116,
+      120,
+      121
+    ],
+    "sentence_ids": [
+      3483,
+      2270,
+      2220,
+      2219,
+      2218
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L24",
+    "level": "A1",
+    "title": "Pekiştirme 23",
+    "topic": "Family",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      242,
+      243,
+      235,
+      236,
+      240,
+      241,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127
+    ],
+    "sentence_ids": [
+      1234,
+      1097,
+      463,
+      6663,
+      6531
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L25",
+    "level": "A1",
+    "title": "Pekiştirme 24",
+    "topic": "Friendship_and_Other_Social_Contacts",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      321,
+      322,
+      325,
+      327,
+      331,
+      128,
+      129,
+      130,
+      131,
+      168,
+      169,
+      170
+    ],
+    "sentence_ids": [
+      2345,
+      6307,
+      6306,
+      5361,
+      5358
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L26",
+    "level": "A1",
+    "title": "Pekiştirme 25",
+    "topic": "Appearance",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      171,
+      172,
+      174,
+      175,
+      176,
+      178,
+      180,
+      181,
+      182,
+      183,
+      184,
+      185
+    ],
+    "sentence_ids": [
+      4882,
+      4817,
+      4791,
+      4297,
+      3977
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L27",
+    "level": "A1",
+    "title": "Pekiştirme 26",
+    "topic": "Character_Traits",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      186,
+      187,
+      188,
+      189,
+      191,
+      192,
+      193,
+      194,
+      196,
+      197,
+      198,
+      199
+    ],
+    "sentence_ids": [
+      939,
+      3967,
+      615,
+      4736,
+      1019
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L28",
+    "level": "A1",
+    "title": "Pekiştirme 27",
+    "topic": "Feelings",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      452,
+      454,
+      455,
+      456,
+      458,
+      438,
+      244,
+      246,
+      247,
+      248,
+      254,
+      255
+    ],
+    "sentence_ids": [
+      3366,
+      5802,
+      5737,
+      5404,
+      5235
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L29",
+    "level": "A1",
+    "title": "Pekiştirme 28",
+    "topic": "Thoughts",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      256,
+      257,
+      259,
+      260,
+      265,
+      266,
+      269,
+      270,
+      272,
+      287,
+      288,
+      290
+    ],
+    "sentence_ids": [
+      3995,
+      911,
+      3723,
+      2590,
+      1713
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L30",
+    "level": "A1",
+    "title": "Pekiştirme 29",
+    "topic": "Life_Cycle",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      380,
+      381,
+      293,
+      295,
+      298,
+      301,
+      302,
+      303,
+      304,
+      305,
+      306,
+      307
+    ],
+    "sentence_ids": [
+      3851,
+      3849,
+      3848,
+      3846,
+      3845
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L31",
+    "level": "A1",
+    "title": "Pekiştirme 30",
+    "topic": "Partnership_and_Marriage",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      292,
+      308,
+      310,
+      311,
+      312,
+      313,
+      314,
+      315,
+      332,
+      333,
+      334,
+      335
+    ],
+    "sentence_ids": [
+      6469,
+      6418,
+      6417,
+      6019,
+      5831
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L32",
+    "level": "A1",
+    "title": "Pekiştirme 31",
+    "topic": "Clothes_and_Shoes",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      155,
+      156,
+      157,
+      158,
+      159,
+      160,
+      161,
+      162,
+      163,
+      164,
+      165,
+      166
+    ],
+    "sentence_ids": [
+      2207,
+      3387,
+      3377,
+      2400,
+      3862
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L33",
+    "level": "A1",
+    "title": "Pekiştirme 32",
+    "topic": "Accessories",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      338,
+      339,
+      340,
+      341,
+      343,
+      344,
+      345,
+      346,
+      347,
+      348,
+      349,
+      350
+    ],
+    "sentence_ids": [
+      3035,
+      3034,
+      2099,
+      1659,
+      6436
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L34",
+    "level": "A1",
+    "title": "Pekiştirme 33",
+    "topic": "Personal_Information",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      351,
+      352,
+      353,
+      354,
+      355,
+      382,
+      383,
+      385,
+      386,
+      387,
+      388,
+      389
+    ],
+    "sentence_ids": [
+      4042,
+      5937,
+      5011,
+      4278,
+      4109
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L35",
+    "level": "A1",
+    "title": "Pekiştirme 34",
+    "topic": "Family",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      390,
+      391,
+      392,
+      393,
+      394,
+      395,
+      396,
+      397,
+      398,
+      399,
+      417,
+      418
+    ],
+    "sentence_ids": [
+      4349,
+      5982,
+      4996,
+      4728,
+      4686
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L36",
+    "level": "A1",
+    "title": "Pekiştirme 35",
+    "topic": "Friendship_and_Other_Social_Contacts",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      419,
+      420,
+      421,
+      422,
+      425,
+      426,
+      427,
+      428,
+      429,
+      430,
+      431,
+      459
+    ],
+    "sentence_ids": [
+      3736,
+      3724,
+      3721,
+      3720,
+      6604
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L37",
+    "level": "A1",
+    "title": "Pekiştirme 36",
+    "topic": "Appearance",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      460,
+      462,
+      463,
+      464,
+      465,
+      466,
+      467,
+      468,
+      469,
+      470,
+      471,
+      472
+    ],
+    "sentence_ids": [
+      4723,
+      4202,
+      3696,
+      4205,
+      823
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L38",
+    "level": "A1",
+    "title": "Pekiştirme 37",
+    "topic": "Character_Traits",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      474,
+      475,
+      476,
+      477,
+      478,
+      479,
+      480,
+      483,
+      484,
+      485,
+      486,
+      487
+    ],
+    "sentence_ids": [
+      2206,
+      6648,
+      6434,
+      6269,
+      6268
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L39",
+    "level": "A1",
+    "title": "Pekiştirme 38",
+    "topic": "Feelings",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      488,
+      489,
+      490,
+      491,
+      492,
+      493,
+      494,
+      495,
+      496,
+      497,
+      498,
+      499
+    ],
+    "sentence_ids": [
+      5343,
+      5965,
+      5850,
+      5536,
+      5535
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  },
+  {
+    "lesson_id": "A1_L40",
+    "level": "A1",
+    "title": "Pekiştirme 39",
+    "topic": "Thoughts",
+    "lesson_keywords": [],
+    "grammar": [
+      "Bu ders pekiştirme amaçlıdır.",
+      "Önceki kelime ve cümleleri tekrar ederek kalıcılık sağlanır."
+    ],
+    "vocab_ids": [
+      167,
+      214,
+      215,
+      216,
+      217,
+      218,
+      219,
+      220,
+      221,
+      222,
+      223,
+      224
+    ],
+    "sentence_ids": [
+      3880,
+      1044,
+      1043,
+      3023,
+      4816
+    ],
+    "tests": [
+      {
+        "type": "recall_word"
+      },
+      {
+        "type": "cloze_sentence"
+      }
+    ]
+  }
+]

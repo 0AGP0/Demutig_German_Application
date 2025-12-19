@@ -103,11 +103,10 @@ export default function DashboardScreen() {
     }, [loadDashboardData])
   );
 
-  if (loading || !progress) {
+  if (!progress) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Yükleniyor...</Text>
+        <Text style={styles.loadingText}>Veri yükleniyor...</Text>
       </View>
     );
   }
@@ -291,7 +290,7 @@ export default function DashboardScreen() {
                         {level} Seviyesi
                       </Text>
                       <Text style={styles.levelInfo}>
-                        {data.vocab_completed} / {data.vocab_target} kelime
+                        {data.vocab_completed} / {data.vocab_target} ders
                       </Text>
                     </View>
                   </View>

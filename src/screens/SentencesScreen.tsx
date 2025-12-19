@@ -249,7 +249,7 @@ export default function SentencesScreen() {
       return;
     }
     
-    // Sağa = Okudum/Bildim (practiced: true), Sola = Okumadım/Bilmediğim (practiced: false)
+    // Sağa = Biliyorum (practiced: true), Sola = Bilmiyorum (practiced: false)
     const practiced = direction === 'right';
     
     try {
@@ -361,15 +361,6 @@ export default function SentencesScreen() {
     B2: Colors.levelB2,
   };
 
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Yükleniyor...</Text>
-      </View>
-    );
-  }
-
   if (!sentences || sentences.length === 0 || sentencesFinished || currentIndex >= sentences.length) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -443,10 +434,10 @@ export default function SentencesScreen() {
       {/* Swipe İpuçları */}
       <View style={styles.swipeHints}>
         <View style={styles.swipeHintLeft}>
-          <Text style={styles.swipeHintText}>← Okumadım/Bilmediğim</Text>
+          <Text style={styles.swipeHintText}>← Bilmiyorum</Text>
         </View>
         <View style={styles.swipeHintRight}>
-          <Text style={styles.swipeHintText}>Okudum/Bildim →</Text>
+          <Text style={styles.swipeHintText}>Biliyorum →</Text>
         </View>
       </View>
 
