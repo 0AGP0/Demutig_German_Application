@@ -15,3 +15,8 @@ echo Tamamlandı! Uygulama sıfırlandı ve yeniden yüklendi.
 
 
 
+
+
+
+
+

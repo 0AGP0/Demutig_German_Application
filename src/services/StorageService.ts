@@ -79,7 +79,7 @@ export class StorageService {
           // Sağa swipe (Biliyorum) → knownCount +1
           vocab[index].knownCount = (vocab[index].knownCount || 0) + 1;
           const currentKnownCount = vocab[index].knownCount || 0;
-          if (currentKnownCount >= 2) {
+          if (currentKnownCount >= 3) {
             vocab[index].status = 'mastered';
             vocab[index].known = true;
           } else {
@@ -90,15 +90,18 @@ export class StorageService {
             vocab[index].learned_date = now;
           }
         } else {
-          // Sola swipe (Bilmiyorum) → knownCount = 0
-          vocab[index].knownCount = 0;
-          const reviewCount = vocab[index].review_count || 0;
-          if (reviewCount > 1) {
-            vocab[index].status = 'learning'; // Daha önce görülmüş
+          // Sola swipe (Bilmiyorum) → knownCount'ı azalt
+          vocab[index].knownCount = Math.max(0, (vocab[index].knownCount || 0) - 1);
+          const currentKnownCount = vocab[index].knownCount || 0;
+          
+          if (currentKnownCount >= 3) {
+            vocab[index].status = 'mastered';
+          } else if (currentKnownCount > 0) {
+            vocab[index].status = 'learning';
           } else {
-            vocab[index].status = 'new'; // İlk kez görülüyor
+            vocab[index].status = 'new';
+            vocab[index].known = false;
           }
-          vocab[index].known = false;
         }
         
         // Bugün değerlendirilen kelimeleri takip et (Dashboard için)
@@ -135,25 +138,25 @@ export class StorageService {
         
         if (known) {
           // Sağa swipe (Biliyorum)
-          if (currentKnownCount >= 2) {
-            // Mastered: 7 gün sonra tekrar et (pekiştirme)
+          if (currentKnownCount >= 3) {
+            // Mastered (3 kez biliniyor): 7 gün sonra tekrar et
             const nextReview = new Date();
             nextReview.setDate(nextReview.getDate() + 7);
             vocab[index].next_review_date = nextReview.toISOString();
-            vocab[index].status = 'review'; // Tekrar zamanı gelince review olacak
+            vocab[index].status = 'review';
           } else {
-            // Learning: 1 gün sonra tekrar et (her "Biliyorum" 1 gün sonra)
+            // Learning (henüz 3 değil): 1 gün sonra tekrar et
             const nextReview = new Date();
             nextReview.setDate(nextReview.getDate() + 1);
             vocab[index].next_review_date = nextReview.toISOString();
-            vocab[index].status = 'review'; // Tekrar zamanı gelince review olacak
+            vocab[index].status = 'review';
           }
         } else {
           // Sola swipe (Bilmiyorum): 1 gün sonra tekrar et
           const nextReview = new Date();
           nextReview.setDate(nextReview.getDate() + 1);
           vocab[index].next_review_date = nextReview.toISOString();
-          vocab[index].status = 'learning'; // Learning modunda, tekrar öğren
+          vocab[index].status = 'learning';
         }
         
         await AsyncStorage.setItem(STORAGE_KEYS.VOCABULARY, JSON.stringify(vocab));
@@ -252,11 +255,29 @@ export class StorageService {
   static async getVocabulary(useCache: boolean = true): Promise<Vocabulary[]> {
     // Cache kontrolü - eğer useCache false ise her zaman bypass et
     if (useCache && vocabularyCache && (Date.now() - cacheTimestamp < CACHE_DURATION)) {
-      return vocabularyCache;
+      return Array.isArray(vocabularyCache) ? vocabularyCache : [];
     }
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.VOCABULARY);
-      const result = data ? JSON.parse(data) : [];
+      if (!data) return [];
+      
+      let result;
+      try {
+        result = JSON.parse(data);
+      } catch (parseError) {
+        console.error('Error parsing vocabulary JSON:', parseError);
+        // Bozuk veriyi temizle
+        await AsyncStorage.removeItem(STORAGE_KEYS.VOCABULARY);
+        return [];
+      }
+      
+      // Güvenlik kontrolü: result array olmalı
+      if (!Array.isArray(result)) {
+        console.error('Vocabulary data is not an array');
+        await AsyncStorage.removeItem(STORAGE_KEYS.VOCABULARY);
+        return [];
+      }
+      
       // Cache'i güncelle - sadece useCache true ise
       if (useCache) {
         vocabularyCache = result;
@@ -298,14 +319,14 @@ export class StorageService {
         // Review count güncelle
         sentences[index].review_count = (sentences[index].review_count || 0) + 1;
         
-        // Mastered sistemi: practicedCount takibi
+        // Mastered sistemi: practicedCount takibi (KELİMELERLE AYNI: 3 KEZ)
         if (practiced) {
           // Sağa swipe (Biliyorum) → practicedCount +1
           const oldCount = sentences[index].practicedCount || 0;
           sentences[index].practicedCount = oldCount + 1;
           const newCount = sentences[index].practicedCount;
           console.log('📈 Sentence practicedCount:', sentenceId, oldCount, '->', newCount);
-          if (newCount >= 2) {
+          if (newCount >= 3) {
             sentences[index].status = 'mastered';
             sentences[index].practiced = true;
             console.log('⭐ Sentence mastered:', sentenceId);
@@ -313,14 +334,18 @@ export class StorageService {
             sentences[index].status = 'learning';
           }
         } else {
-          // Sola swipe (Bilmiyorum) → practicedCount = 0
-          sentences[index].practicedCount = 0;
-          if (sentences[index].review_count > 1) {
-            sentences[index].status = 'learning'; // Daha önce görülmüş
+          // Sola swipe (Bilmiyorum) → practicedCount'ı azalt (KELİMELERLE AYNI)
+          sentences[index].practicedCount = Math.max(0, (sentences[index].practicedCount || 0) - 1);
+          const currentCount = sentences[index].practicedCount || 0;
+          
+          if (currentCount >= 3) {
+            sentences[index].status = 'mastered';
+          } else if (currentCount > 0) {
+            sentences[index].status = 'learning';
           } else {
-            sentences[index].status = 'new'; // İlk kez görülüyor
+            sentences[index].status = 'new';
+            sentences[index].practiced = false;
           }
-          sentences[index].practiced = false;
         }
         
         // Spaced repetition: Bir sonraki tekrar tarihini hesapla
@@ -328,25 +353,25 @@ export class StorageService {
         
         if (practiced) {
           // Sağa swipe (Biliyorum)
-          if (currentPracticedCount >= 2) {
-            // Mastered: 7 gün sonra tekrar et (pekiştirme)
+          if (currentPracticedCount >= 3) {
+            // Mastered (3 kez biliniyor): 7 gün sonra tekrar et
             const nextReview = new Date();
             nextReview.setDate(nextReview.getDate() + 7);
             sentences[index].next_review_date = nextReview.toISOString();
-            sentences[index].status = 'review'; // Tekrar zamanı gelince review olacak
+            sentences[index].status = 'review';
           } else {
-            // Learning: 1 gün sonra tekrar et (her "Biliyorum" 1 gün sonra)
+            // Learning (henüz 3 değil): 1 gün sonra tekrar et
             const nextReview = new Date();
             nextReview.setDate(nextReview.getDate() + 1);
             sentences[index].next_review_date = nextReview.toISOString();
-            sentences[index].status = 'review'; // Tekrar zamanı gelince review olacak
+            sentences[index].status = 'review';
           }
         } else {
           // Sola swipe (Bilmiyorum): 1 gün sonra tekrar et
           const nextReview = new Date();
           nextReview.setDate(nextReview.getDate() + 1);
           sentences[index].next_review_date = nextReview.toISOString();
-          sentences[index].status = 'learning'; // Learning modunda, tekrar öğren
+          sentences[index].status = 'learning';
         }
         
         // daily_reviewed_date güncelle (Dashboard için)
@@ -409,11 +434,29 @@ export class StorageService {
   static async getSentences(useCache: boolean = true): Promise<Sentence[]> {
     // Cache kontrolü - eğer useCache false ise her zaman bypass et
     if (useCache && sentencesCache && (Date.now() - cacheTimestamp < CACHE_DURATION)) {
-      return sentencesCache;
+      return Array.isArray(sentencesCache) ? sentencesCache : [];
     }
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SENTENCES);
-      const result = data ? JSON.parse(data) : [];
+      if (!data) return [];
+      
+      let result;
+      try {
+        result = JSON.parse(data);
+      } catch (parseError) {
+        console.error('Error parsing sentences JSON:', parseError);
+        // Bozuk veriyi temizle
+        await AsyncStorage.removeItem(STORAGE_KEYS.SENTENCES);
+        return [];
+      }
+      
+      // Güvenlik kontrolü: result array olmalı
+      if (!Array.isArray(result)) {
+        console.error('Sentences data is not an array');
+        await AsyncStorage.removeItem(STORAGE_KEYS.SENTENCES);
+        return [];
+      }
+      
       // Cache'i güncelle - sadece useCache true ise
       if (useCache) {
         sentencesCache = result;
@@ -536,7 +579,26 @@ export class StorageService {
   static async getProgress(): Promise<UserProgress | null> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.PROGRESS);
-      return data ? JSON.parse(data) : null;
+      if (!data) return null;
+      
+      let result;
+      try {
+        result = JSON.parse(data);
+      } catch (parseError) {
+        console.error('Error parsing progress JSON:', parseError);
+        // Bozuk veriyi temizle
+        await AsyncStorage.removeItem(STORAGE_KEYS.PROGRESS);
+        return null;
+      }
+      
+      // Güvenlik kontrolü: result object olmalı
+      if (!result || typeof result !== 'object') {
+        console.error('Progress data is not an object');
+        await AsyncStorage.removeItem(STORAGE_KEYS.PROGRESS);
+        return null;
+      }
+      
+      return result;
     } catch (error) {
       console.error('Error getting progress:', error);
       return null;
@@ -817,6 +879,79 @@ export class StorageService {
     const progress = allProgress[lessonId] || null;
     console.log('📊 getLessonProgressById:', lessonId, 'completed:', progress?.completed);
     return progress;
+  }
+
+  // Son görülen kelimeyi kaydet (id veya german)
+  static async saveLastSeenWord(wordIdentifier: string | number): Promise<void> {
+    try {
+      await AsyncStorage.setItem('@german_app:last_seen_word', String(wordIdentifier));
+      console.log('💾 Son görülen kelime kaydedildi:', wordIdentifier);
+    } catch (error) {
+      console.error('Error saving last seen word:', error);
+    }
+  }
+  
+  // Son görülen kelimeyi getir
+  static async getLastSeenWord(): Promise<string | null> {
+    try {
+      const word = await AsyncStorage.getItem('@german_app:last_seen_word');
+      console.log('📖 Son görülen kelime:', word);
+      return word;
+    } catch (error) {
+      console.error('Error getting last seen word:', error);
+      return null;
+    }
+  }
+
+  // Favorilere ekle/çıkar
+  static async toggleFavorite(identifier: string | number, isFavorite: boolean): Promise<void> {
+    try {
+      const vocab = await this.getVocabulary(false);
+      let index = -1;
+      
+      if (typeof identifier === 'number') {
+        index = vocab.findIndex(v => v.id === identifier);
+      } else if (typeof identifier === 'string') {
+        index = vocab.findIndex(v => v.german === identifier || v.word === identifier);
+      }
+      
+      if (index !== -1) {
+        vocab[index].isFavorite = isFavorite;
+        await AsyncStorage.setItem(STORAGE_KEYS.VOCABULARY, JSON.stringify(vocab));
+        this.clearCache();
+        console.log('⭐ Favori güncellendi:', identifier, isFavorite);
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  }
+
+  // Yarın tekrar göster (next_review_date'i yarına ayarla)
+  static async addToReview(identifier: string | number): Promise<void> {
+    try {
+      const vocab = await this.getVocabulary(false);
+      let index = -1;
+      
+      if (typeof identifier === 'number') {
+        index = vocab.findIndex(v => v.id === identifier);
+      } else if (typeof identifier === 'string') {
+        index = vocab.findIndex(v => v.german === identifier || v.word === identifier);
+      }
+      
+      if (index !== -1) {
+        // Yarın için review tarihi ayarla
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        vocab[index].next_review_date = tomorrow.toISOString();
+        vocab[index].status = 'review';
+        
+        await AsyncStorage.setItem(STORAGE_KEYS.VOCABULARY, JSON.stringify(vocab));
+        this.clearCache();
+        console.log('↻ Tekrar tarihi ayarlandı:', identifier, 'yarın');
+      }
+    } catch (error) {
+      console.error('Error adding to review:', error);
+    }
   }
 }
 

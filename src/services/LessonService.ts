@@ -8,8 +8,9 @@ export class LessonService {
   // Dersleri yükle
   static async loadLessons(level: 'A1' | 'A2' | 'B1' | 'B2'): Promise<Lesson[]> {
     try {
-      let lessons: Lesson[];
+      let lessons: Lesson[] = [];
       
+      try {
       switch (level) {
         case 'A1':
           lessons = require('../../assets/data/lessons_a1.json');
@@ -25,18 +26,32 @@ export class LessonService {
           break;
         default:
           lessons = [];
+        }
+      } catch (requireError) {
+        console.error(`Error requiring lessons file for ${level}:`, requireError);
+        return [];
       }
       
       // Eğer lessons bir array değilse (eski format), lessonData.lessons'ı kontrol et
       if (!Array.isArray(lessons)) {
+        try {
         const lessonData = lessons as any;
-        lessons = lessonData.lessons || [];
+          lessons = Array.isArray(lessonData.lessons) ? lessonData.lessons : [];
+        } catch (parseError) {
+          console.error(`Error parsing lessons data for ${level}:`, parseError);
+          return [];
+        }
       }
       
-      console.log(`📚 Loaded ${lessons.length} lessons for level ${level}`);
+      // Güvenlik kontrolü: lessons'in array olduğundan emin ol
+      if (!Array.isArray(lessons)) {
+        console.error(`Lessons data for ${level} is not an array`);
+        return [];
+      }
+      
       return lessons;
     } catch (error) {
-      console.error('Error loading lessons:', error);
+      console.error(`Error loading lessons for ${level}:`, error);
       return [];
     }
   }
@@ -224,63 +239,5 @@ export class LessonService {
     }
   }
 
-  // Ders progress'ini güncelle (kelime/cümle mastered sayıları)
-  static async updateLessonProgressCounts(lessonId: string, lesson: Lesson): Promise<void> {
-    const vocab = await this.loadLessonVocab(lesson);
-    const sentences = await this.loadLessonSentences(lesson);
-    
-    // Cache'i bypass et - her zaman güncel verileri al
-    const savedVocab = await StorageService.getVocabulary(false);
-    const savedSentences = await StorageService.getSentences(false);
-    
-    const vocabMap = new Map(savedVocab.map(v => [v.id, v]));
-    // Sentence Map - hem number hem string key'ler için
-    const sentenceMap = new Map<any, Sentence>();
-    savedSentences.forEach(s => {
-      const id = s.id;
-      sentenceMap.set(id, s);
-      if (typeof id === 'number') {
-        sentenceMap.set(String(id), s);
-      } else if (typeof id === 'string') {
-        const numId = Number(id);
-        if (!isNaN(numId)) {
-          sentenceMap.set(numId, s);
-        }
-      }
-    });
-    
-    let vocabMastered = 0;
-    let sentenceMastered = 0;
-    
-    vocab.forEach(v => {
-      const saved = vocabMap.get(v.id);
-      if (saved && (saved.status === 'mastered' || (saved.knownCount && saved.knownCount >= 2))) {
-        vocabMastered++;
-      }
-    });
-    
-    sentences.forEach(s => {
-      // ID eşleşmesi - hem number hem string karşılaştırması yap
-      const sId = s.id;
-      const saved = sentenceMap.get(sId) || 
-                   (typeof sId === 'number' ? sentenceMap.get(String(sId)) : sentenceMap.get(Number(sId)));
-      // Dersler için: practicedCount >= 1 yeterli (normal kartlarda >= 2)
-      if (saved && (
-        saved.status === 'mastered' || 
-        (saved.practicedCount && saved.practicedCount >= 1) ||
-        saved.practiced === true
-      )) {
-        sentenceMastered++;
-      }
-    });
-    
-    await StorageService.updateLessonProgress(lessonId, {
-      vocab_mastered_count: vocabMastered,
-      sentence_mastered_count: sentenceMastered,
-    });
-    
-    // Cache'i temizle
-    StorageService.clearCache();
-  }
 }
 

@@ -15,41 +15,63 @@ export class TestService {
     testMode: TestMode,
     limit?: number
   ): Promise<Vocabulary[]> {
-    const allWords = await DataService.loadVocabulary(level);
-    const savedWords = await StorageService.getVocabulary();
+    try {
+      let allWords: Vocabulary[] = [];
+      let savedWords: Vocabulary[] = [];
+      
+      try {
+        allWords = await DataService.loadVocabulary(level);
+        if (!Array.isArray(allWords)) allWords = [];
+      } catch (error) {
+        console.error('Error loading vocabulary in getWordsForTest:', error);
+        allWords = [];
+      }
+      
+      try {
+        savedWords = await StorageService.getVocabulary();
+        if (!Array.isArray(savedWords)) savedWords = [];
+      } catch (error) {
+        console.error('Error loading saved vocabulary in getWordsForTest:', error);
+        savedWords = [];
+      }
     
     // Saved words ile merge et
     const mergedWords = allWords.map(word => {
+        try {
+          if (!word) return null;
       const identifier = word.german || word.word;
       const saved = savedWords.find(w => 
+            w && (
         (w.german && w.german === identifier) || 
         (w.word && w.word === identifier) ||
         (w.id && w.id === word.id)
+            )
       );
       return saved ? { ...word, ...saved } : word;
-    });
+        } catch {
+          return word;
+        }
+      }).filter((w): w is Vocabulary => w !== null);
     
     let filteredWords: Vocabulary[] = [];
     
+      try {
     switch (testMode) {
       case 'unknown':
         // Sadece kullanıcının "bilmediğim" olarak işaretlediği kelimeler
-        // (known: false VE last_reviewed var - yani kullanıcı bu kelimeyi görmüş ve sola swipe etmiş)
-        // NOT: Vocabulary ekranında sadece bilinmeyen kelimeler gösteriliyor, 
-        // ama Test'te sadece kullanıcının aktif olarak değerlendirdiği kelimeler gözükmeli
         filteredWords = mergedWords.filter(w => {
-          // Kullanıcı bu kelimeyi görmüş mü? (last_reviewed var mı?)
+              try {
           if (!w.last_reviewed) return false;
-          // Bilinmiyor mu?
           if (w.known) return false;
-          // Kullanıcı sola swipe etmiş mi? (wrong_count > 0 veya en az bir kez değerlendirilmiş)
-          // last_reviewed varsa zaten değerlendirilmiş demektir
           return true;
+              } catch {
+                return false;
+              }
         });
         break;
       case 'known':
         // Sadece bildiği kelimeler (pekiştirme)
-        filteredWords = mergedWords.filter(w => w.known);
+            filteredWords = mergedWords.filter(w => w && w.known === true);
         break;
       case 'mixed':
         // Karışık (tüm kelimeler)
@@ -59,25 +81,41 @@ export class TestService {
         // Tekrar zamanı gelen kelimeler (spaced repetition)
         const now = new Date();
         filteredWords = mergedWords.filter(w => {
+              try {
           if (!w.next_review_date) return false;
           const reviewDate = new Date(w.next_review_date);
           return reviewDate <= now;
+              } catch {
+                return false;
+              }
         });
         // Zorluk seviyesine göre sırala (zor olanlar önce)
         filteredWords.sort((a, b) => {
+              try {
           const diffA = a.difficulty_level || 1;
           const diffB = b.difficulty_level || 1;
           return diffB - diffA;
+              } catch {
+                return 0;
+              }
         });
         break;
+        }
+      } catch (filterError) {
+        console.error('Error filtering words:', filterError);
+        filteredWords = [];
     }
     
     // Limit varsa uygula
-    if (limit) {
+      if (limit && limit > 0) {
       filteredWords = filteredWords.slice(0, limit);
     }
     
     return filteredWords;
+    } catch (error) {
+      console.error('Critical error in getWordsForTest:', error);
+      return [];
+    }
   }
 
   /**

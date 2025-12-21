@@ -9,8 +9,8 @@ import { StorageService } from './src/services/StorageService';
 import DashboardScreen from './src/screens/DashboardScreen';
 import VocabularyScreen from './src/screens/VocabularyScreen';
 import SentencesScreen from './src/screens/SentencesScreen';
+import DictionaryScreen from './src/screens/DictionaryScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
-import LessonListScreen from './src/screens/LessonListScreen';
 import LessonScreen from './src/screens/LessonScreen';
 
 const Stack = createNativeStackNavigator();
@@ -74,14 +74,25 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="Lessons"
-        component={LessonListScreen}
+        name="Dictionary"
+        component={DictionaryScreen}
         options={{ 
-          tabBarLabel: 'Dersler',
+          tabBarLabel: 'Sözlük',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="book-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Lessons"
+        component={LessonScreen}
+        options={{ 
+          tabBarLabel: 'Ders',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="school" size={size} color={color} />
           ),
         }}
+        initialParams={{ lessonId: null }}
       />
     </Tab.Navigator>
   );
@@ -89,7 +100,7 @@ function MainTabs() {
 
 // Development modunda her açılışta verileri temizle
 // Bu flag'i false yaparak devre dışı bırakabilirsiniz
-const CLEAR_DATA_ON_START = __DEV__ && true; // Development modunda ve true ise temizle
+const CLEAR_DATA_ON_START = false; // Devre dışı - ilerleme kaydedilecek
 
 export default function App() {
   // Development modunda uygulama açılışında verileri temizle
@@ -131,14 +142,6 @@ export default function App() {
             component={CalendarScreen}
             options={{ 
               title: 'Takvim',
-              headerShown: true,
-            }}
-          />
-          <Stack.Screen
-            name="Lessons"
-            component={LessonListScreen}
-            options={{ 
-              title: 'Dersler',
               headerShown: true,
             }}
           />

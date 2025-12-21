@@ -17,6 +17,8 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 
 export default function DashboardScreen() {
+  console.log('📊 DashboardScreen rendering...');
+  
   const navigation = useNavigation<NavigationProp<any>>();
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState<UserProgress | null>(null);
@@ -27,40 +29,113 @@ export default function DashboardScreen() {
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
-      let userProgress = await ProgressService.calculateProgress();
+      
+      // ProgressService.calculateProgress() hata verebilir, güvenli şekilde çağır
+      let userProgress;
+      try {
+        userProgress = await ProgressService.calculateProgress();
+      } catch (progressError) {
+        console.error('Error calculating progress:', progressError);
+        // Varsayılan progress oluştur
+        userProgress = {
+          total_words_learned: 0,
+          total_sentences_practiced: 0,
+          streak_days: 0,
+          last_study_date: new Date().toISOString(),
+          level_progress: {
+            A1: { vocab_completed: 0, vocab_target: 0, sentences_completed: 0, sentences_target: 0, percentage: 0 },
+            A2: { vocab_completed: 0, vocab_target: 0, sentences_completed: 0, sentences_target: 0, percentage: 0 },
+            B1: { vocab_completed: 0, vocab_target: 0, sentences_completed: 0, sentences_target: 0, percentage: 0 },
+            B2: { vocab_completed: 0, vocab_target: 0, sentences_completed: 0, sentences_target: 0, percentage: 0 },
+          },
+          current_level: 'A1' as const,
+          daily_goal: { words: 10, sentences: 5, minutes: 30 },
+        };
+      }
+
+      try {
       const streak = await StorageService.updateStreak();
       userProgress.streak_days = streak;
       await StorageService.saveProgress(userProgress);
+      } catch (streakError) {
+        console.error('Error updating streak:', streakError);
+        // Streak hatası olsa bile devam et
+      }
+
       setProgress(userProgress);
 
       const today = new Date().toDateString();
-      const allVocab = await StorageService.getVocabulary();
-      const allSentences = await StorageService.getSentences();
+      let allVocab: any[] = [];
+      let allSentences: any[] = [];
+
+      try {
+        allVocab = await StorageService.getVocabulary();
+      } catch (vocabError) {
+        console.error('Error loading vocabulary:', vocabError);
+        allVocab = [];
+      }
+
+      try {
+        allSentences = await StorageService.getSentences();
+      } catch (sentencesError) {
+        console.error('Error loading sentences:', sentencesError);
+        allSentences = [];
+      }
 
       // Bugün değerlendirilen kelimeleri say (Vocabulary ekranında sağa/sola swipe edilenler)
       const todayVocab = allVocab.filter((v: any) => {
+        try {
         // Önce daily_reviewed_date'e bak (yeni sistem), yoksa last_reviewed'e bak (eski veriler için)
         const reviewDate = v.daily_reviewed_date || v.last_reviewed;
         if (!reviewDate) return false;
         const reviewDateString = new Date(reviewDate).toDateString();
         return reviewDateString === today;
+        } catch {
+          return false;
+        }
       });
 
       const todaySentences = allSentences.filter((s: any) => {
+        try {
         // Önce daily_reviewed_date'e bak (yeni sistem), yoksa practiced_date'e bak (eski veriler için)
         const reviewDate = s.daily_reviewed_date || s.practiced_date;
         if (!reviewDate) return false;
         return new Date(reviewDate).toDateString() === today;
+        } catch {
+          return false;
+        }
       });
 
       setTodayWordsCount(todayVocab.length);
       setTodaySentencesCount(todaySentences.length);
 
       // Tekrar zamanı gelen kelimeleri say
+      try {
       const reviewWords = await TestService.getWordsForTest(userProgress.current_level, 'review');
       setReviewWordsCount(reviewWords.length);
+      } catch (reviewError) {
+        console.error('Error loading review words:', reviewError);
+        setReviewWordsCount(0);
+      }
     } catch (error) {
       console.error('Error loading dashboard:', error);
+      // Hata olsa bile varsayılan değerleri ayarla
+      if (!progress) {
+        setProgress({
+          total_words_learned: 0,
+          total_sentences_practiced: 0,
+          streak_days: 0,
+          last_study_date: new Date().toISOString(),
+          level_progress: {
+            A1: { vocab_completed: 0, vocab_target: 0, sentences_completed: 0, sentences_target: 0, percentage: 0 },
+            A2: { vocab_completed: 0, vocab_target: 0, sentences_completed: 0, sentences_target: 0, percentage: 0 },
+            B1: { vocab_completed: 0, vocab_target: 0, sentences_completed: 0, sentences_target: 0, percentage: 0 },
+            B2: { vocab_completed: 0, vocab_target: 0, sentences_completed: 0, sentences_target: 0, percentage: 0 },
+          },
+          current_level: 'A1' as const,
+          daily_goal: { words: 10, sentences: 5, minutes: 30 },
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -290,7 +365,7 @@ export default function DashboardScreen() {
                         {level} Seviyesi
                       </Text>
                       <Text style={styles.levelInfo}>
-                        {data.vocab_completed} / {data.vocab_target} ders
+                        {data.vocab_completed} / {data.vocab_target} kelime
                       </Text>
                     </View>
                   </View>

@@ -8,7 +8,20 @@ export class DataService {
   // Kelimeleri yükle (Langenscheidt formatı)
   static async loadVocabulary(level?: 'A1' | 'A2' | 'B1' | 'B2'): Promise<Vocabulary[]> {
     try {
-      const vocabData = require('../../assets/data/vocab_langenscheidt.json');
+      let vocabData;
+      try {
+        vocabData = require('../../assets/data/vocab_langenscheidt.json');
+      } catch (requireError) {
+        console.error('Error requiring vocabulary file:', requireError);
+        return [];
+      }
+      
+      // Güvenlik kontrolü: vocabData array olmalı
+      if (!Array.isArray(vocabData)) {
+        console.error('Vocabulary data is not an array');
+        return [];
+      }
+      
       let vocab = vocabData.map((v: any) => ({
         ...v,
         known: v.known || false,
@@ -30,7 +43,13 @@ export class DataService {
   // Cümleleri yükle (7k Sentences formatı)
   static async loadSentences(count: number = 5, level?: 'A1' | 'A2' | 'B1' | 'B2'): Promise<Sentence[]> {
     try {
-      const sentencesData = require('../../assets/data/german_sentences/sentences_7k.json');
+      let sentencesData;
+      try {
+        sentencesData = require('../../assets/data/german_sentences/sentences_7k.json');
+      } catch (requireError) {
+        console.error('Error requiring sentences file:', requireError);
+        return [];
+      }
       
       if (!Array.isArray(sentencesData) || sentencesData.length === 0) {
         console.error('DataService: Cümle dosyası geçersiz veya boş!');

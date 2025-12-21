@@ -105,6 +105,17 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace 'com.germanlearning.app'
+    
+    // Java 17 kullan (React Native 0.74.5 Java 17 ile çalışmalı)
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    
     defaultConfig {
         applicationId 'com.germanlearning.app'
         minSdkVersion rootProject.ext.minSdkVersion
@@ -146,10 +157,10 @@ android {
         }
     }
     
-    // Ses dosyalarını assets klasörüne ekle (fallback için gerekli)
+    // Ses dosyalarını ve PDF dosyalarını assets klasörüne ekle (fallback için gerekli)
     sourceSets {
         main {
-            assets.srcDirs += ['../../assets/audio']
+            assets.srcDirs += ['../../assets/audio', '../../assets/pdfs']
         }
     }
 }

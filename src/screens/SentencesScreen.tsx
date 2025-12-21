@@ -563,26 +563,6 @@ export default function SentencesScreen() {
           </TouchableOpacity>
         </Animated.View>
       </View>
-
-      {/* Navigasyon */}
-      {currentIndex > 0 && (
-        <View style={styles.navigation}>
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => {
-              if (currentIndex > 0) {
-                const newIndex = currentIndex - 1;
-                setCurrentIndex(newIndex);
-                StorageService.saveSentencesLastIndex(newIndex);
-                position.setValue({ x: 0, y: 0 });
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.navButtonText}>← Geri</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </View>
   );
 }
@@ -898,25 +878,6 @@ const styles = StyleSheet.create({
   practicedText: {
     ...Typography.caption,
     color: Colors.success,
-    fontWeight: '600',
-  },
-  navigation: {
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.md,
-    alignItems: 'flex-start',
-  },
-  navButton: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.small,
-  },
-  navButtonText: {
-    ...Typography.bodySmall,
-    color: Colors.primary,
     fontWeight: '600',
   },
   switchModeButton: {

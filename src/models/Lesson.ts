@@ -21,6 +21,7 @@ export interface LessonProgress {
   completed_at?: string;
   vocab_mastered_count: number;
   sentence_mastered_count: number;
+  current_card_index?: number;
 }
 
 export interface LessonData {
@@ -41,6 +42,11 @@ export interface LessonData {
   };
   lessons: Lesson[];
 }
+
+
+
+
+
 
 
 

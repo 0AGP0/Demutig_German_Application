@@ -118,9 +118,9 @@ export default function VocabularyScreen() {
         // Status hesapla (eğer yoksa)
         if (!merged.status) {
           const knownCount = merged.knownCount || 0;
-          if (knownCount >= 2) {
+          if (knownCount >= 3) {
             merged.status = 'mastered';
-          } else if (knownCount === 1 || merged.last_reviewed) {
+          } else if (knownCount >= 1 || merged.last_reviewed) {
             merged.status = 'learning';
           } else {
             merged.status = 'new';
@@ -143,19 +143,13 @@ export default function VocabularyScreen() {
         return merged;
       });
       
-      // Öncelik sırasına göre filtrele ve sırala: review → learning → new
+      // Filtrele: Sadece review + öğrenilmemiş kelimeleri göster
+      // (Mastered olanlar review zamanı gelmediyse gösterilmez)
       const reviewWords = mergedWords.filter(w => w.status === 'review');
-      const learningWords = mergedWords.filter(w => w.status === 'learning');
+      const learningWords = mergedWords.filter(w => w.status === 'learning' && !w.next_review_date);
       const newWords = mergedWords.filter(w => w.status === 'new');
       
-      // Zorluk seviyesine göre sırala (zor olanlar önce)
-      reviewWords.sort((a, b) => {
-        const diffA = a.difficulty_level || 1;
-        const diffB = b.difficulty_level || 1;
-        return diffB - diffA;
-      });
-      
-      // Sıralama: review → learning → new
+      // Sıralama: review → learning → new (SABİT, random değil - index tutmak için)
       const wordsToShow = [...reviewWords, ...learningWords, ...newWords];
       
       console.log('VocabularyScreen: Gösterilecek kelime sayısı:', wordsToShow.length);
@@ -173,11 +167,33 @@ export default function VocabularyScreen() {
       
       setWords(wordsToShow);
       
-      // Kaydedilmiş index'i geri yükle
-      const savedIndex = await StorageService.getVocabularyLastIndex();
-      const validIndex = savedIndex < wordsToShow.length ? savedIndex : 0;
-      setCurrentIndex(validIndex);
-      setShowMeaning(false); // Yeni kelime için anlamı gizle
+      // Son görülen kelimeyi bul ve oradan devam et
+      const lastSeenWord = await StorageService.getLastSeenWord();
+      let startIndex = 0;
+      
+      if (lastSeenWord && wordsToShow.length > 0) {
+        // Son görülen kelimeyi listede bul
+        const foundIndex = wordsToShow.findIndex(w => {
+          const identifier = String(w.id || w.german || w.word);
+          return identifier === lastSeenWord;
+        });
+        
+        if (foundIndex !== -1) {
+          // Kelime bulundu - bir sonraki kelimeden devam et
+          startIndex = foundIndex + 1;
+          console.log('✅ Son görülen kelime bulundu! Index:', foundIndex, '→ Devam:', startIndex);
+        } else {
+          console.log('⚠️ Son görülen kelime listede yok, baştan başla');
+        }
+      }
+      
+      // Listede kelime kalmadıysa başa dön
+      if (startIndex >= wordsToShow.length) {
+        startIndex = 0;
+      }
+      
+      setCurrentIndex(startIndex);
+      setShowMeaning(false);
       position.setValue({ x: 0, y: 0 });
       
       if (wordsToShow.length === 0) {
@@ -243,13 +259,16 @@ export default function VocabularyScreen() {
     // Önce state'i güncelle - wordData'yı da gönder ki yeni kelime ise eklenebilsin
     // VocabularyScreen'de swipe edildiğinde daily_reviewed_date hemen set edilmeli
     try {
-    if (direction === 'right') {
-      // Sağa = Biliyorum (Yeşil)
-      await StorageService.updateVocabularyStatus(identifier, true, word);
-    } else {
-      // Sola = Bilmiyorum (Kırmızı)
-      await StorageService.updateVocabularyStatus(identifier, false, word);
+      if (direction === 'right') {
+        // Sağa = Biliyorum (Yeşil)
+        await StorageService.updateVocabularyStatus(identifier, true, word);
+      } else {
+        // Sola = Bilmiyorum (Kırmızı)
+        await StorageService.updateVocabularyStatus(identifier, false, word);
       }
+      
+      // Son görülen kelimeyi kaydet
+      await StorageService.saveLastSeenWord(identifier);
     } catch (error) {
       console.error('Error updating vocabulary status:', error);
     }
@@ -268,15 +287,13 @@ export default function VocabularyScreen() {
         const currentWordsAfter = wordsRef.current;
         
         if (nextIndex < currentWordsAfter.length) {
-          // Sonraki kelime var - index'i kaydet
-          StorageService.saveVocabularyLastIndex(nextIndex);
-          setShowMeaning(false); // Yeni kelime için anlamı gizle
+          // Sonraki kelime var
+          setShowMeaning(false);
           return nextIndex;
         } else {
-          // Kelimeler bitti, mesaj göster - index'i sıfırla
-          StorageService.saveVocabularyLastIndex(0);
+          // Kelimeler bitti
           setWordsFinished(true);
-          return currentWordsAfter.length; // Index'i son kelimeden sonra tut
+          return currentWordsAfter.length;
         }
       });
     });
@@ -425,14 +442,8 @@ export default function VocabularyScreen() {
         )}
       </View>
 
-      {/* İlerleme */}
+      {/* İlerleme Bar - Sadece bar göster, sayı yok */}
       <View style={styles.progressContainer}>
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressLabel}>İlerleme</Text>
-          <Text style={styles.progressText}>
-            {currentIndex + 1} / {words.length}
-          </Text>
-        </View>
         <View style={styles.progressBar}>
           <LinearGradient
             colors={[Colors.primary, Colors.primaryLight]}
@@ -626,25 +637,6 @@ export default function VocabularyScreen() {
         </Animated.View>
       </View>
 
-      {/* Navigasyon - Sadece geri gitme için */}
-      {currentIndex > 0 && (
-        <View style={styles.navigation}>
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => {
-              if (currentIndex > 0) {
-                const newIndex = currentIndex - 1;
-                setCurrentIndex(newIndex);
-                StorageService.saveVocabularyLastIndex(newIndex);
-                position.setValue({ x: 0, y: 0 });
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.navButtonText}>← Geri</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </View>
   );
 }
@@ -958,25 +950,6 @@ const styles = StyleSheet.create({
   knownText: {
     ...Typography.caption,
     color: Colors.success,
-    fontWeight: '600',
-  },
-  navigation: {
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.md,
-    alignItems: 'flex-start',
-  },
-  navButton: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.small,
-  },
-  navButtonText: {
-    ...Typography.bodySmall,
-    color: Colors.primary,
     fontWeight: '600',
   },
   switchModeButton: {
