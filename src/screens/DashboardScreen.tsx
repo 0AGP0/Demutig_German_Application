@@ -10,7 +10,6 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { ProgressService } from '../services/ProgressService';
 import { StorageService } from '../services/StorageService';
-import { TestService } from '../services/TestService';
 import { UserProgress } from '../models/Progress';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../constants/theme';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -24,7 +23,6 @@ export default function DashboardScreen() {
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [todayWordsCount, setTodayWordsCount] = useState(0);
   const [todaySentencesCount, setTodaySentencesCount] = useState(0);
-  const [reviewWordsCount, setReviewWordsCount] = useState(0);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -108,15 +106,6 @@ export default function DashboardScreen() {
 
       setTodayWordsCount(todayVocab.length);
       setTodaySentencesCount(todaySentences.length);
-
-      // Tekrar zamanı gelen kelimeleri say
-      try {
-      const reviewWords = await TestService.getWordsForTest(userProgress.current_level, 'review');
-      setReviewWordsCount(reviewWords.length);
-      } catch (reviewError) {
-        console.error('Error loading review words:', reviewError);
-        setReviewWordsCount(0);
-      }
     } catch (error) {
       console.error('Error loading dashboard:', error);
       // Hata olsa bile varsayılan değerleri ayarla
@@ -268,32 +257,6 @@ export default function DashboardScreen() {
           </View>
         </View>
       </View>
-
-      {/* TEKRAR ZAMANI KARTI */}
-      {reviewWordsCount > 0 && (
-        <View style={styles.reviewSection}>
-          <TouchableOpacity
-            style={styles.reviewCard}
-            onPress={() => {
-              navigation.navigate('Test');
-            }}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[Colors.achievement, Colors.achievementLight]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.reviewCardGradient}
-            >
-              <Text style={styles.reviewEmoji}>🔄</Text>
-              <Text style={styles.reviewTitle}>Tekrar Zamanı</Text>
-              <Text style={styles.reviewNumber}>{reviewWordsCount}</Text>
-              <Text style={styles.reviewLabel}>Kelime tekrar bekliyor</Text>
-              <Text style={styles.reviewHint}>Teste gitmek için tıkla →</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* İSTATİSTİKLER - Grid Layout */}
       <View style={styles.statsSection}>
@@ -462,47 +425,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: Colors.textTertiary,
     fontWeight: '300',
-  },
-  // TEKRAR ZAMANI
-  reviewSection: {
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.xl,
-  },
-  reviewCard: {
-    borderRadius: BorderRadius.xl,
-    overflow: 'hidden',
-    ...Shadows.colored,
-  },
-  reviewCardGradient: {
-    padding: Spacing.xxxl,
-    alignItems: 'center',
-  },
-  reviewEmoji: {
-    fontSize: 48,
-    marginBottom: Spacing.md,
-  },
-  reviewTitle: {
-    ...Typography.h3,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.xs,
-    fontWeight: '700',
-  },
-  reviewNumber: {
-    ...Typography.displayLarge,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.xs,
-  },
-  reviewLabel: {
-    ...Typography.body,
-    color: Colors.textPrimary,
-    opacity: 0.9,
-    marginBottom: Spacing.sm,
-  },
-  reviewHint: {
-    ...Typography.bodySmall,
-    color: Colors.textPrimary,
-    opacity: 0.7,
-    fontStyle: 'italic',
   },
   // HEDEFLER
   goalsSection: {

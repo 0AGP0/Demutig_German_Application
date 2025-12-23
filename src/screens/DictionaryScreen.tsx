@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -36,7 +36,7 @@ export default function DictionaryScreen() {
   const insets = useSafeAreaInsets();
   const [words, setWords] = useState<Vocabulary[]>([]);
   const [filteredWords, setFilteredWords] = useState<Vocabulary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // false'dan başla - instant render
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [selectedWord, setSelectedWord] = useState<Vocabulary | null>(null);
@@ -45,17 +45,14 @@ export default function DictionaryScreen() {
 
   const loadWords = useCallback(async () => {
     try {
-      setLoading(true);
-      
+      // Paralel yükleme - tüm seviyeler aynı anda
       const allLevels: ('A1' | 'A2' | 'B1' | 'B2')[] = ['A1', 'A2', 'B1', 'B2'];
-      const allWords: Vocabulary[] = [];
+      const [vocabResults, savedWords] = await Promise.all([
+        Promise.all(allLevels.map(level => DataService.loadVocabulary(level))),
+        StorageService.getVocabulary(),
+      ]);
       
-      for (const level of allLevels) {
-        const levelWords = await DataService.loadVocabulary(level);
-        allWords.push(...levelWords);
-      }
-      
-      const savedWords = await StorageService.getVocabulary();
+      const allWords = vocabResults.flat();
       
       // Identifier oluşturma: id, german ve word ile 3 farklı key ekle
       const savedWordsMap = new Map<string | number, Vocabulary>();
@@ -74,26 +71,36 @@ export default function DictionaryScreen() {
         return saved ? { ...word, ...saved } : word;
       });
       
+      // Sıralama
       mergedWords.sort((a, b) => {
         const aWord = (a.german || a.word || '').toLowerCase();
         const bWord = (b.german || b.word || '').toLowerCase();
         return aWord.localeCompare(bWord);
       });
       
-      setWords(mergedWords);
-      setFilteredWords(mergedWords);
+      // İlk 50 kelimeyi hemen göster
+      setWords(mergedWords.slice(0, 50));
+      setFilteredWords(mergedWords.slice(0, 50));
+      
+      // Geri kalanını sonra ekle (non-blocking)
+      if (mergedWords.length > 50) {
+        setTimeout(() => {
+          setWords(mergedWords);
+          setFilteredWords(mergedWords);
+        }, 100);
+      }
     } catch (error) {
       console.error('Error loading dictionary:', error);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
+  // Sadece ilk mount'ta yükle, her focus'ta değil
   useEffect(() => {
     loadWords();
-  }, [loadWords]);
+  }, []);
 
-  useEffect(() => {
+  // Filtrelemeyi memoize et - performans için
+  const filteredWordsMemo = useMemo(() => {
     let result = [...words];
     
     if (filter === 'favorites') {
@@ -118,10 +125,14 @@ export default function DictionaryScreen() {
       });
     }
     
-    setFilteredWords(result);
+    return result;
   }, [searchQuery, filter, words]);
+  
+  useEffect(() => {
+    setFilteredWords(filteredWordsMemo);
+  }, [filteredWordsMemo]);
 
-  const toggleFavorite = async (word: Vocabulary) => {
+  const toggleFavorite = useCallback(async (word: Vocabulary) => {
     const identifier = word.id || word.german || word.word;
     if (!identifier) return;
     
@@ -138,10 +149,13 @@ export default function DictionaryScreen() {
     );
     
     // Modal'daki kelimeyi güncelle
-    if (selectedWord && (selectedWord.id === word.id || selectedWord.german === word.german)) {
-      setSelectedWord({ ...selectedWord, isFavorite: newFavoriteState });
-    }
-  };
+    setSelectedWord(prevSelected => {
+      if (prevSelected && (prevSelected.id === word.id || prevSelected.german === word.german)) {
+        return { ...prevSelected, isFavorite: newFavoriteState };
+      }
+      return prevSelected;
+    });
+  }, []);
 
   const addToReview = async (word: Vocabulary) => {
     const identifier = word.id || word.german || word.word;
@@ -169,7 +183,8 @@ export default function DictionaryScreen() {
     return ['#2A2A2A', '#3A3A3A'];
   };
 
-  const renderWordItem = ({ item }: { item: Vocabulary }) => {
+  // Memoize render function
+  const renderWordItem = useCallback(({ item }: { item: Vocabulary }) => {
     const knownCount = item.knownCount || 0;
     const progressGradient = getProgressGradient(knownCount);
     
@@ -236,17 +251,9 @@ export default function DictionaryScreen() {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [toggleFavorite]);
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
-      </View>
-    );
-  }
+  // Loading state kaldırıldı - instant render için
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -317,22 +324,40 @@ export default function DictionaryScreen() {
         </ScrollView>
       </View>
 
-      {/* Word List */}
-      <FlatList
-        data={filteredWords}
-        renderItem={renderWordItem}
-        keyExtractor={(item) => String(item.id || item.german || item.word)}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>📚</Text>
-            <Text style={styles.emptyText}>
-              {searchQuery ? 'Kelime bulunamadı' : 'Henüz kelime yok'}
-            </Text>
-          </View>
-        }
-      />
+      {/* Word List - Ultra Optimized */}
+      {words.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Kelimeler yükleniyor...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredWords}
+          renderItem={renderWordItem}
+          keyExtractor={(item) => String(item.id || item.german || item.word)}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          // Performance optimizations
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={3}
+          removeClippedSubviews={true}
+          updateCellsBatchingPeriod={100}
+          getItemLayout={(data, index) => ({
+            length: 150,
+            offset: 150 * index,
+            index,
+          })}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>📚</Text>
+              <Text style={styles.emptyText}>
+                {searchQuery ? 'Kelime bulunamadı' : 'Henüz kelime yok'}
+              </Text>
+            </View>
+          }
+        />
+      )}
 
       {/* Modal */}
       <Modal
@@ -436,6 +461,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.textSecondary,
   },
   
   // Header
@@ -751,3 +786,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
 });
+
+
+
