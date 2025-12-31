@@ -47,26 +47,51 @@ export class StorageService {
         index = vocab.findIndex(v => v.german === identifier || v.word === identifier);
       }
       
+      // Yeni kelime mi yoksa güncelleme mi?
+      const isNewWord = index === -1;
+      
       // Eğer kelime bulunamadıysa ve wordData varsa, yeni kelime ekle
-      if (index === -1 && wordData) {
+      if (isNewWord && wordData) {
+        const now = new Date().toISOString();
+        const today = new Date().toDateString();
+        
         const newWord: any = {
           ...wordData,
           known: known,
-          last_reviewed: new Date().toISOString(),
+          last_reviewed: now,
           review_count: 1,
           correct_count: known ? 1 : 0,
           wrong_count: known ? 0 : 1,
-          daily_reviewed_date: new Date().toISOString(),
-          knownCount: known ? 1 : 0,
+          daily_reviewed_date: now,
+          knownCount: known ? 1 : 0, // İlk swipe: 1 veya 0
           status: known ? 'learning' : 'new',
         };
+        
         if (known) {
-          newWord.learned_date = new Date().toISOString();
+          newWord.learned_date = now;
         }
+        
+        // Status hesapla
+        const currentKnownCount = newWord.knownCount || 0;
+        if (currentKnownCount >= 3) {
+          newWord.status = 'mastered';
+          const nextReview = new Date();
+          nextReview.setDate(nextReview.getDate() + 7);
+          newWord.next_review_date = nextReview.toISOString();
+        } else if (currentKnownCount > 0) {
+          newWord.status = 'learning';
+          const nextReview = new Date();
+          nextReview.setDate(nextReview.getDate() + 1);
+          newWord.next_review_date = nextReview.toISOString();
+        }
+        
         vocab.push(newWord);
-        index = vocab.length - 1;
+        await AsyncStorage.setItem(STORAGE_KEYS.VOCABULARY, JSON.stringify(vocab));
+        this.clearCache();
+        return; // Yeni kelime eklendi, fonksiyondan çık!
       }
       
+      // Mevcut kelimeyi güncelle
       if (index !== -1) {
         const now = new Date().toISOString();
         const today = new Date().toDateString();
@@ -74,43 +99,47 @@ export class StorageService {
         vocab[index].last_reviewed = now;
         vocab[index].review_count = (vocab[index].review_count || 0) + 1;
         
-        // Mastered sistemi: knownCount takibi
+        // knownCount güncelle
         if (known) {
           // Sağa swipe (Biliyorum) → knownCount +1
           vocab[index].knownCount = (vocab[index].knownCount || 0) + 1;
-          const currentKnownCount = vocab[index].knownCount || 0;
-          if (currentKnownCount >= 3) {
-            vocab[index].status = 'mastered';
-            vocab[index].known = true;
-          } else {
-            vocab[index].status = 'learning';
-          }
           // İlk öğrenme tarihi
           if (!vocab[index].learned_date) {
             vocab[index].learned_date = now;
           }
         } else {
-          // Sola swipe (Bilmiyorum) → knownCount'ı azalt
+          // Sola swipe (Bilmiyorum) → knownCount'ı azalt (0'ın altına düşmesin)
           vocab[index].knownCount = Math.max(0, (vocab[index].knownCount || 0) - 1);
-          const currentKnownCount = vocab[index].knownCount || 0;
-          
-          if (currentKnownCount >= 3) {
-            vocab[index].status = 'mastered';
-          } else if (currentKnownCount > 0) {
-            vocab[index].status = 'learning';
-          } else {
-            vocab[index].status = 'new';
-            vocab[index].known = false;
-          }
+        }
+        
+        const currentKnownCount = vocab[index].knownCount || 0;
+        
+        // Status ve next_review_date'i birlikte hesapla
+        if (currentKnownCount >= 3) {
+          // Mastered: 7 gün sonra tekrar
+          vocab[index].status = 'mastered';
+          vocab[index].known = true;
+          const nextReview = new Date();
+          nextReview.setDate(nextReview.getDate() + 7);
+          vocab[index].next_review_date = nextReview.toISOString();
+        } else if (currentKnownCount > 0) {
+          // Learning: 1 gün sonra tekrar
+          vocab[index].status = 'learning';
+          const nextReview = new Date();
+          nextReview.setDate(nextReview.getDate() + 1);
+          vocab[index].next_review_date = nextReview.toISOString();
+        } else {
+          // New: henüz hiç bilmedi
+          vocab[index].status = 'new';
+          vocab[index].known = false;
+          // next_review_date yok (yeni kelime)
         }
         
         // Bugün değerlendirilen kelimeleri takip et (Dashboard için)
-        // Her değerlendirmede daily_reviewed_date'i bugün olarak güncelle
         const lastDailyReview = vocab[index].daily_reviewed_date 
           ? new Date(vocab[index].daily_reviewed_date as string).toDateString() 
           : null;
         
-        // Eğer bugün değerlendirilmemişse veya hiç değerlendirilmemişse, bugün set et
         if (!lastDailyReview || lastDailyReview !== today) {
           vocab[index].daily_reviewed_date = now;
         }
@@ -122,41 +151,14 @@ export class StorageService {
           vocab[index].wrong_count = (vocab[index].wrong_count || 0) + 1;
         }
         
-        // Zorluk seviyesini hesapla (yanlış sayısına göre)
+        // Zorluk seviyesini hesapla
         const wrongCount = vocab[index].wrong_count || 0;
         const correctCount = vocab[index].correct_count || 0;
         const totalAttempts = wrongCount + correctCount;
         
         if (totalAttempts > 0) {
-          // Yanlış oranına göre zorluk (1-5 arası)
           const wrongRatio = wrongCount / totalAttempts;
           vocab[index].difficulty_level = Math.min(5, Math.max(1, Math.ceil(wrongRatio * 5)));
-        }
-        
-        // Spaced repetition: Bir sonraki tekrar tarihini hesapla
-        const currentKnownCount = vocab[index].knownCount || 0;
-        
-        if (known) {
-          // Sağa swipe (Biliyorum)
-          if (currentKnownCount >= 3) {
-            // Mastered (3 kez biliniyor): 7 gün sonra tekrar et
-            const nextReview = new Date();
-            nextReview.setDate(nextReview.getDate() + 7);
-            vocab[index].next_review_date = nextReview.toISOString();
-            vocab[index].status = 'review';
-          } else {
-            // Learning (henüz 3 değil): 1 gün sonra tekrar et
-            const nextReview = new Date();
-            nextReview.setDate(nextReview.getDate() + 1);
-            vocab[index].next_review_date = nextReview.toISOString();
-            vocab[index].status = 'review';
-          }
-        } else {
-          // Sola swipe (Bilmiyorum): 1 gün sonra tekrar et
-          const nextReview = new Date();
-          nextReview.setDate(nextReview.getDate() + 1);
-          vocab[index].next_review_date = nextReview.toISOString();
-          vocab[index].status = 'learning';
         }
         
         await AsyncStorage.setItem(STORAGE_KEYS.VOCABULARY, JSON.stringify(vocab));
@@ -319,59 +321,39 @@ export class StorageService {
         // Review count güncelle
         sentences[index].review_count = (sentences[index].review_count || 0) + 1;
         
-        // Mastered sistemi: practicedCount takibi (KELİMELERLE AYNI: 3 KEZ)
+        // practicedCount güncelle
         if (practiced) {
           // Sağa swipe (Biliyorum) → practicedCount +1
           const oldCount = sentences[index].practicedCount || 0;
           sentences[index].practicedCount = oldCount + 1;
-          const newCount = sentences[index].practicedCount;
-          console.log('📈 Sentence practicedCount:', sentenceId, oldCount, '->', newCount);
-          if (newCount >= 3) {
-            sentences[index].status = 'mastered';
-            sentences[index].practiced = true;
-            console.log('⭐ Sentence mastered:', sentenceId);
-          } else {
-            sentences[index].status = 'learning';
-          }
+          console.log('📈 Sentence practicedCount:', sentenceId, oldCount, '->', sentences[index].practicedCount);
         } else {
-          // Sola swipe (Bilmiyorum) → practicedCount'ı azalt (KELİMELERLE AYNI)
+          // Sola swipe (Bilmiyorum) → practicedCount'ı azalt (0'ın altına düşmesin)
           sentences[index].practicedCount = Math.max(0, (sentences[index].practicedCount || 0) - 1);
-          const currentCount = sentences[index].practicedCount || 0;
-          
-          if (currentCount >= 3) {
-            sentences[index].status = 'mastered';
-          } else if (currentCount > 0) {
-            sentences[index].status = 'learning';
-          } else {
-            sentences[index].status = 'new';
-            sentences[index].practiced = false;
-          }
         }
         
-        // Spaced repetition: Bir sonraki tekrar tarihini hesapla
         const currentPracticedCount = sentences[index].practicedCount || 0;
         
-        if (practiced) {
-          // Sağa swipe (Biliyorum)
-          if (currentPracticedCount >= 3) {
-            // Mastered (3 kez biliniyor): 7 gün sonra tekrar et
-            const nextReview = new Date();
-            nextReview.setDate(nextReview.getDate() + 7);
-            sentences[index].next_review_date = nextReview.toISOString();
-            sentences[index].status = 'review';
-          } else {
-            // Learning (henüz 3 değil): 1 gün sonra tekrar et
-            const nextReview = new Date();
-            nextReview.setDate(nextReview.getDate() + 1);
-            sentences[index].next_review_date = nextReview.toISOString();
-            sentences[index].status = 'review';
-          }
-        } else {
-          // Sola swipe (Bilmiyorum): 1 gün sonra tekrar et
+        // Status ve next_review_date'i birlikte hesapla
+        if (currentPracticedCount >= 3) {
+          // Mastered: 7 gün sonra tekrar
+          sentences[index].status = 'mastered';
+          sentences[index].practiced = true;
+          const nextReview = new Date();
+          nextReview.setDate(nextReview.getDate() + 7);
+          sentences[index].next_review_date = nextReview.toISOString();
+          console.log('⭐ Sentence mastered:', sentenceId);
+        } else if (currentPracticedCount > 0) {
+          // Learning: 1 gün sonra tekrar
+          sentences[index].status = 'learning';
           const nextReview = new Date();
           nextReview.setDate(nextReview.getDate() + 1);
           sentences[index].next_review_date = nextReview.toISOString();
-          sentences[index].status = 'learning';
+        } else {
+          // New: henüz hiç pratik yapmadı
+          sentences[index].status = 'new';
+          sentences[index].practiced = false;
+          // next_review_date yok (yeni cümle)
         }
         
         // daily_reviewed_date güncelle (Dashboard için)
@@ -939,11 +921,11 @@ export class StorageService {
       }
       
       if (index !== -1) {
-        // Yarın için review tarihi ayarla
+        // Yarın için review tarihi ayarla (status'u değiştirme - ekran hesaplayacak)
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         vocab[index].next_review_date = tomorrow.toISOString();
-        vocab[index].status = 'review';
+        // Status'u koruyalım - ekran next_review_date'e göre 'review' olarak gösterecek
         
         await AsyncStorage.setItem(STORAGE_KEYS.VOCABULARY, JSON.stringify(vocab));
         this.clearCache();

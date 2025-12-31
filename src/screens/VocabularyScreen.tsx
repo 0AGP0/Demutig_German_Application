@@ -143,17 +143,30 @@ export default function VocabularyScreen() {
         return merged;
       });
       
-      // Filtrele: Sadece review + öğrenilmemiş kelimeleri göster
-      // (Mastered olanlar review zamanı gelmediyse gösterilmez)
+      // Filtrele: Sadece review (tekrar zamanı gelmiş) + yeni kelimeler göster
+      // Learning ve mastered kelimeleri tekrar zamanı gelene kadar gösterme (spaced repetition)
       const reviewWords = mergedWords.filter(w => w.status === 'review');
-      const learningWords = mergedWords.filter(w => w.status === 'learning' && !w.next_review_date);
       const newWords = mergedWords.filter(w => w.status === 'new');
+      const learningWords = mergedWords.filter(w => w.status === 'learning');
+      const masteredWords = mergedWords.filter(w => w.status === 'mastered');
       
-      // Sıralama: review → learning → new (SABİT, random değil - index tutmak için)
-      const wordsToShow = [...reviewWords, ...learningWords, ...newWords];
+      // Sıralama: review → new (SABİT, random değil - index tutmak için)
+      const wordsToShow = [...reviewWords, ...newWords];
       
-      console.log('VocabularyScreen: Gösterilecek kelime sayısı:', wordsToShow.length);
-      console.log('VocabularyScreen: Review:', reviewWords.length, 'Learning:', learningWords.length, 'New:', newWords.length);
+      console.log('📊 VocabularyScreen İstatistikler:');
+      console.log('   Gösterilecek:', wordsToShow.length, '(Review:', reviewWords.length, '+ New:', newWords.length + ')');
+      console.log('   Bekleme Süresinde:', learningWords.length + masteredWords.length, '(Learning:', learningWords.length, '+ Mastered:', masteredWords.length + ')');
+      console.log('   Toplam Yüklenen:', mergedWords.length);
+      
+      // İlk 3 learning kelimeyi detaylı göster (debug için)
+      if (learningWords.length > 0) {
+        console.log('📝 İlk 3 Learning Kelime (Tekrar Bekliyor):');
+        learningWords.slice(0, 3).forEach(w => {
+          const reviewDate = w.next_review_date ? new Date(w.next_review_date) : null;
+          const hoursUntil = reviewDate ? Math.round((reviewDate.getTime() - now.getTime()) / (1000 * 60 * 60)) : null;
+          console.log(`   - ${w.german}: next_review = ${reviewDate?.toLocaleString('tr-TR') || 'yok'} (${hoursUntil} saat sonra)`);
+        });
+      }
       
       // Boş image_path'leri temizle
       wordsToShow.forEach(word => {
@@ -505,7 +518,7 @@ export default function VocabularyScreen() {
                     </Text>
                   </View>
                   <View style={styles.headerRight}>
-                    {currentWord.knownCount && currentWord.knownCount >= 2 && (
+                    {currentWord.knownCount && currentWord.knownCount >= 3 && (
                       <View style={styles.masteredBadge}>
                         <Text style={styles.masteredText}>⭐ Mastered</Text>
                       </View>

@@ -162,7 +162,8 @@ export class LessonService {
     let vocabMasteredCount = 0;
     const allVocabMastered = vocab.every(v => {
       const saved = vocabMap.get(v.id);
-      const isMastered = saved && (saved.status === 'mastered' || (saved.knownCount && saved.knownCount >= 2));
+      // Kelime için mastered: knownCount >= 3 (genel sistemle tutarlı)
+      const isMastered = saved && (saved.status === 'mastered' || (saved.knownCount && saved.knownCount >= 3));
       if (isMastered) vocabMasteredCount++;
       return isMastered;
     });
@@ -198,11 +199,10 @@ export class LessonService {
       const sId = s.id;
       const saved = sentenceMap.get(sId) || 
                    (typeof sId === 'number' ? sentenceMap.get(String(sId)) : sentenceMap.get(Number(sId)));
-      // Dersler için: practicedCount >= 1 yeterli (normal kartlarda >= 2)
+      // Cümle için mastered: practicedCount >= 3 (genel sistemle tutarlı)
       const isMastered = saved && (
         saved.status === 'mastered' || 
-        (saved.practicedCount && saved.practicedCount >= 1) ||
-        saved.practiced === true
+        (saved.practicedCount && saved.practicedCount >= 3)
       );
       if (isMastered) sentenceMasteredCount++;
       return isMastered;

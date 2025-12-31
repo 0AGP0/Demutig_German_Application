@@ -133,8 +133,8 @@ export class ProgressService {
       // Toplam öğrenilen kelime: knownCount >= 3 olanlar
       const totalMastered = userVocab.filter(v => v && (v.knownCount || 0) >= 3).length;
       
-      // Toplam pratik yapılan cümle: practicedCount >= 2 olanlar
-      const totalSentences = practicedSentences.filter(s => s && (s.practicedCount || 0) >= 2).length;
+      // Toplam pratik yapılan cümle: practicedCount >= 3 olanlar (KELİMELERLE AYNI)
+      const totalSentences = practicedSentences.filter(s => s && (s.practicedCount || 0) >= 3).length;
     
     const progress: UserProgress = {
         total_words_learned: totalMastered,

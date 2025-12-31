@@ -155,12 +155,12 @@ export default function SentencesScreen() {
             status: saved.status,
           } : sentence;
           
-          // Status hesapla (eğer yoksa)
+          // Status hesapla (eğer yoksa) - KELİMELERLE AYNI: 3 KEZ
           if (!merged.status) {
             const practicedCount = merged.practicedCount || 0;
-            if (practicedCount >= 2) {
+            if (practicedCount >= 3) {
               merged.status = 'mastered';
-            } else if (practicedCount === 1 || merged.practiced_date) {
+            } else if (practicedCount >= 1 || merged.practiced_date) {
               merged.status = 'learning';
             } else {
               merged.status = 'new';
@@ -188,13 +188,31 @@ export default function SentencesScreen() {
           return !!(s.german_sentence || s.de || sAny.text_de);
         });
       
-      // Öncelik sırasına göre filtrele ve sırala: review → learning → new
+      // Öncelik sırasına göre filtrele ve sırala: review → new
+      // Learning ve mastered cümleler tekrar zamanı gelene kadar gösterilmez (spaced repetition)
       const reviewSentences = mergedSentences.filter(s => s.status === 'review');
-      const learningSentences = mergedSentences.filter(s => s.status === 'learning');
       const newSentences = mergedSentences.filter(s => s.status === 'new');
+      const learningSentences = mergedSentences.filter(s => s.status === 'learning');
+      const masteredSentences = mergedSentences.filter(s => s.status === 'mastered');
       
-      // Sıralama: review → learning → new
-      const sentencesToShow = [...reviewSentences, ...learningSentences, ...newSentences];
+      // Sıralama: review → new
+      const sentencesToShow = [...reviewSentences, ...newSentences];
+      
+      console.log('📊 SentencesScreen İstatistikler:');
+      console.log('   Gösterilecek:', sentencesToShow.length, '(Review:', reviewSentences.length, '+ New:', newSentences.length + ')');
+      console.log('   Bekleme Süresinde:', learningSentences.length + masteredSentences.length, '(Learning:', learningSentences.length, '+ Mastered:', masteredSentences.length + ')');
+      console.log('   Toplam Yüklenen:', mergedSentences.length);
+      
+      // İlk 3 learning cümleyi detaylı göster (debug için)
+      if (learningSentences.length > 0) {
+        console.log('📝 İlk 3 Learning Cümle (Tekrar Bekliyor):');
+        learningSentences.slice(0, 3).forEach(s => {
+          const reviewDate = s.next_review_date ? new Date(s.next_review_date) : null;
+          const hoursUntil = reviewDate ? Math.round((reviewDate.getTime() - now.getTime()) / (1000 * 60 * 60)) : null;
+          const germanText = s.german_sentence || s.de || (s as any).text_de || 'N/A';
+          console.log(`   - ${germanText.substring(0, 30)}...: next_review = ${reviewDate?.toLocaleString('tr-TR') || 'yok'} (${hoursUntil} saat sonra)`);
+        });
+      }
       
       // Boş image_path ve audio_path'leri temizle
       sentencesToShow.forEach(sentence => {
@@ -479,7 +497,7 @@ export default function SentencesScreen() {
                     </Text>
                   </View>
                   <View style={styles.headerRight}>
-                    {currentSentence.practicedCount && currentSentence.practicedCount >= 2 && (
+                    {currentSentence.practicedCount && currentSentence.practicedCount >= 3 && (
                       <View style={styles.masteredBadge}>
                         <Text style={styles.masteredText}>⭐ Mastered</Text>
                       </View>

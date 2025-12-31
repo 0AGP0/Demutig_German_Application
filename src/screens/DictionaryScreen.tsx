@@ -14,8 +14,10 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { DataService } from '../services/DataService';
 import { StorageService } from '../services/StorageService';
+import { ProgressService } from '../services/ProgressService';
 import { AudioService } from '../services/AudioService';
 import { Vocabulary } from '../models/Vocabulary';
 import { Colors, Spacing, Typography, BorderRadius } from '../constants/theme';
@@ -42,13 +44,23 @@ export default function DictionaryScreen() {
   const [selectedWord, setSelectedWord] = useState<Vocabulary | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [currentLevel, setCurrentLevel] = useState<'A1' | 'A2' | 'B1' | 'B2'>('A1');
 
   const loadWords = useCallback(async () => {
     try {
-      // Paralel yükleme - tüm seviyeler aynı anda
+      // Kullanıcının erişebildiği seviyeleri belirle
+      const progress = await ProgressService.calculateProgress();
+      const userLevel = progress.current_level;
+      setCurrentLevel(userLevel);
+      
+      // Sadece erişilebilen seviyeleri yükle (currentLevel ve altı)
       const allLevels: ('A1' | 'A2' | 'B1' | 'B2')[] = ['A1', 'A2', 'B1', 'B2'];
+      const currentLevelIndex = allLevels.indexOf(userLevel);
+      const accessibleLevels = allLevels.slice(0, currentLevelIndex + 1);
+      
+      console.log('📚 Sözlük: Erişilebilen seviyeler:', accessibleLevels);
       const [vocabResults, savedWords] = await Promise.all([
-        Promise.all(allLevels.map(level => DataService.loadVocabulary(level))),
+        Promise.all(accessibleLevels.map(level => DataService.loadVocabulary(level))),
         StorageService.getVocabulary(),
       ]);
       
@@ -62,14 +74,45 @@ export default function DictionaryScreen() {
         if (w.word) savedWordsMap.set(w.word, w);
       });
       
-      // Merge: önce id'ye bak, sonra german, sonra word
-      const mergedWords = allWords.map(word => {
+      // Helper: Merge + Status hesaplama
+      const now = new Date();
+      const mergeAndCalculateStatus = (word: Vocabulary) => {
         let saved = null;
         if (word.id) saved = savedWordsMap.get(word.id);
         if (!saved && word.german) saved = savedWordsMap.get(word.german);
         if (!saved && word.word) saved = savedWordsMap.get(word.word);
-        return saved ? { ...word, ...saved } : word;
-      });
+        const merged = saved ? { ...word, ...saved } : word;
+        
+        // Status hesapla (eğer yoksa)
+        if (!merged.status) {
+          const knownCount = merged.knownCount || 0;
+          if (knownCount >= 3) {
+            merged.status = 'mastered';
+          } else if (knownCount >= 1 || merged.last_reviewed) {
+            merged.status = 'learning';
+          } else {
+            merged.status = 'new';
+          }
+        }
+        
+        // Review kontrolü - next_review_date geçmişse status'u review yap
+        if (merged.status === 'mastered' && merged.next_review_date) {
+          const reviewDate = new Date(merged.next_review_date);
+          if (reviewDate <= now) {
+            merged.status = 'review';
+          }
+        } else if (merged.status === 'learning' && merged.next_review_date) {
+          const reviewDate = new Date(merged.next_review_date);
+          if (reviewDate <= now) {
+            merged.status = 'review';
+          }
+        }
+        
+        return merged;
+      };
+      
+      // Tüm kelimeleri merge ve status hesapla (blocking ama hızlı)
+      const mergedWords = allWords.map(mergeAndCalculateStatus);
       
       // Sıralama
       mergedWords.sort((a, b) => {
@@ -78,26 +121,22 @@ export default function DictionaryScreen() {
         return aWord.localeCompare(bWord);
       });
       
-      // İlk 50 kelimeyi hemen göster
-      setWords(mergedWords.slice(0, 50));
-      setFilteredWords(mergedWords.slice(0, 50));
+      console.log('📚 Sözlük: Toplam kelime sayısı:', mergedWords.length);
       
-      // Geri kalanını sonra ekle (non-blocking)
-      if (mergedWords.length > 50) {
-        setTimeout(() => {
-          setWords(mergedWords);
-          setFilteredWords(mergedWords);
-        }, 100);
-      }
+      // Hepsini bir seferde set et
+      setWords(mergedWords);
+      setFilteredWords(mergedWords);
     } catch (error) {
       console.error('Error loading dictionary:', error);
     }
   }, []);
 
-  // Sadece ilk mount'ta yükle, her focus'ta değil
-  useEffect(() => {
-    loadWords();
-  }, []);
+  // Her ekran focus'unda yeniden yükle (swipe sonrası güncel veri için)
+  useFocusEffect(
+    useCallback(() => {
+      loadWords();
+    }, [loadWords])
+  );
 
   // Filtrelemeyi memoize et - performans için
   const filteredWordsMemo = useMemo(() => {
@@ -106,14 +145,18 @@ export default function DictionaryScreen() {
     if (filter === 'favorites') {
       result = result.filter(w => w.isFavorite === true);
     } else if (filter === 'mastered') {
-      result = result.filter(w => (w.knownCount || 0) >= 3);
+      // Mastered: status 'mastered' VEYA knownCount >= 3 (backwards compatibility)
+      result = result.filter(w => w.status === 'mastered' || (w.knownCount || 0) >= 3);
     } else if (filter === 'learning') {
+      // Learning: status 'learning', 'review' VEYA knownCount 1-2 (backwards compatibility)
       result = result.filter(w => {
+        if (w.status === 'learning' || w.status === 'review') return true;
         const count = w.knownCount || 0;
         return count > 0 && count < 3;
       });
     } else if (filter === 'new') {
-      result = result.filter(w => !w.knownCount || w.knownCount === 0);
+      // New: status 'new' VEYA knownCount 0 (backwards compatibility)
+      result = result.filter(w => w.status === 'new' || !w.knownCount || w.knownCount === 0);
     }
     
     if (searchQuery.trim()) {
@@ -177,16 +220,20 @@ export default function DictionaryScreen() {
     }
   };
 
-  const getProgressGradient = (knownCount: number): string[] => {
-    if (knownCount >= 3) return ['#58CC02', '#7ED321'];
-    if (knownCount > 0) return ['#1CB0F6', '#4FC3F7'];
-    return ['#2A2A2A', '#3A3A3A'];
+  const getProgressGradient = (word: Vocabulary): string[] => {
+    const status = word.status;
+    const knownCount = word.knownCount || 0;
+    
+    // Status varsa ona göre renk seç
+    if (status === 'mastered' || knownCount >= 3) return ['#58CC02', '#7ED321']; // Yeşil
+    if (status === 'learning' || status === 'review' || knownCount > 0) return ['#1CB0F6', '#4FC3F7']; // Mavi
+    return ['#2A2A2A', '#3A3A3A']; // Gri (new)
   };
 
   // Memoize render function
   const renderWordItem = useCallback(({ item }: { item: Vocabulary }) => {
     const knownCount = item.knownCount || 0;
-    const progressGradient = getProgressGradient(knownCount);
+    const progressGradient = getProgressGradient(item);
     
     // Seviye rengini belirle
     const levelColors: Record<string, string> = {
@@ -235,17 +282,22 @@ export default function DictionaryScreen() {
               </Text>
             </View>
             
-            {/* Minimal Progress */}
+            {/* Minimal Progress - Status Based */}
             <View style={styles.progressMini}>
-              {[0, 1, 2].map((i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.miniDot,
-                    knownCount > i && styles.miniDotFilled,
-                  ]}
-                />
-              ))}
+              {[0, 1, 2].map((i) => {
+                // knownCount'a göre nokta sayısı (doğrudan)
+                const filledCount = knownCount;
+                
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.miniDot,
+                      filledCount > i && styles.miniDotFilled,
+                    ]}
+                  />
+                );
+              })}
             </View>
           </View>
         </View>
@@ -262,10 +314,6 @@ export default function DictionaryScreen() {
       {/* Modern Header with Blur Effect */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Sözlük</Text>
-        <View style={styles.headerMeta}>
-          <Text style={styles.headerCount}>{filteredWords.length}</Text>
-          <Text style={styles.headerLabel}>kelime</Text>
-        </View>
       </View>
 
       {/* Sleek Search */}
@@ -786,6 +834,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
 });
+
 
 
 
